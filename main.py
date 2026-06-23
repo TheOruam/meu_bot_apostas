@@ -1,10 +1,7 @@
 import requests
 from datetime import datetime
-import time
 
-# ==========================================
 # 1. SUAS CREDENCIAIS REAIS
-# ==========================================
 TELEGRAM_TOKEN = '8983808854:AAH36YnSLE2ACY_1s5wSDhxQgCUbs66VzlA'
 CHAT_ID = '747956770'
 API_FOOTBALL_KEY = '418766ef4ec5450f1cab64d32229ddee'
@@ -13,7 +10,7 @@ def executar_analise():
     data_hoje = datetime.now().strftime('%Y-%m-%d')
     url_fixtures = "https://v3.football.api-sports.io/fixtures"
     headers_football = {'x-apisports-key': API_FOOTBALL_KEY}
-    params_fixtures = {'date': data_hoje, 'season': '2026'} # Atualizado para a temporada atual
+    params_fixtures = {'date': data_hoje, 'season': '2026'}
 
     print("Buscando jogos do dia...")
     try:
@@ -24,7 +21,7 @@ def executar_analise():
             print("Nenhum jogo encontrado para hoje.")
             return
 
-        # Analisa o primeiro jogo da lista como teste
+        # Analisa o primeiro jogo da lista
         primeiro_jogo = jogos[0]
         id_jogo = primeiro_jogo['fixture']['id']
         time_casa = primeiro_jogo['teams']['home']['name']
@@ -54,12 +51,6 @@ def executar_analise():
     except Exception as e:
         print(f"Erro durante a execução: {e}")
 
-# Loop eterno para o robô ficar vigiando o horário na nuvem
-print("Robô Analista iniciado com sucesso no Render!")
-while True:
-    agora = datetime.now()
-    # Define o horário de envio (exemplo: 09 horas e 00 minutos da manhã)
-    if agora.hour == 9 and agora.minute == 0:
-        executar_analise()
-        time.sleep(61) # Evita rodar duas vezes no mesmo minuto
-    time.sleep(30) # Checa as horas a cada 30 segundos
+# Executa direto uma única vez
+if __name__ == "__main__":
+    executar_analise()
