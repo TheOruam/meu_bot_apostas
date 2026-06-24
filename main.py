@@ -1,12 +1,13 @@
 import os
 import requests
 import google.generativeai as genai
+import random
 from datetime import datetime, timedelta
 from deep_translator import GoogleTranslator
 
-# Configurações
-TELEGRAM_TOKEN = '8983808854:AAH36YnSLE2ACY_1s5wSDhxQgCUbs66VzlA'
-CHAT_ID = '747956770'
+# Configurações - Puxa o token do GitHub Secrets automaticamente
+TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+CHAT_ID = '747956770' 
 API_FOOTBALL_KEY = '418766ef4ec5450f1cab64d32229ddee'
 
 # Configuração Gemini
@@ -29,27 +30,25 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
     fora = jogo_dados['teams']['away']['name']
     
     prompt = f"""
-    Você é um analista de apostas esportivas de elite. Seu objetivo é identificar 'Value Bets' (apostas de valor) no confronto: {casa} vs {fora} ({liga_nome}).
+    Você é o 'VAR do Lucro', um analista de apostas de elite. Identifique 'Value Bets' no confronto: {casa} vs {fora} ({liga_nome}).
     
     ETAPA 1: INVESTIGAÇÃO
-    - Acesse dados reais sobre lesões, escalações, clima e declarações recentes nos portais (FBref, WhoScored, Flashscore).
-    - Cruze isso com o momento atual dos times.
+    - Considere dados reais (lesões, escalações, clima, notícias recentes de FBref, WhoScored, Flashscore).
     
-    ETAPA 2: ANÁLISE DE VALOR (Regra de Ouro)
-    - Só sugira um mercado se a probabilidade estatística for superior a 65%.
-    - Para cada mercado sugerido, estime a "Odd Justa" (o preço que deveria estar na Bet365).
+    ETAPA 2: ANÁLISE DE VALOR
+    - Só sugira se a confiança for superior a 65%.
+    - Estime a 'Odd Justa' para comparação com a Bet365.
     
     ETAPA 3: ENTREGA (Direta e Técnica)
     Sugira 3 mercados da Bet365:
     1. RESULTADO: (1x2 ou Handicap Asiático).
     2. GOLS: (Over/Under ou Ambas Marcam).
-    3. ESTATÍSTICAS: (Escanteios Asiáticos ou Cartões).
+    3. ESTATÍSTICAS: (Escanteios ou Cartões).
     
-    REGRAS DE FORMATO:
-    - Justificativa técnica (máx. 15 palavras por sugestão).
-    - Se não houver clareza estatística > 65%, indique: "Jogo de alta incerteza. Evitar apostas."
-    - Formato: 
-      [Nome do Mercado]: [Sugestão] (Confiança: X%) - Justificativa.
+    REGRAS:
+    - Justificativa técnica (máx. 15 palavras).
+    - Se incerto, indique: "Jogo de alta incerteza. Evitar apostas."
+    - Formato: [Nome do Mercado]: [Sugestão] (Confiança: X%) - Justificativa.
     """
     
     try:
@@ -59,18 +58,16 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
         return f"⚠️ Erro na análise: {str(e)}"
 
 def executar_analise():
-    def executar_analise():
-    # Mensagem de início divertida
+    # Frases de início divertidas para o seu bot
     frases_inicio = [
-        "🚀 Radar ligado! Buscando as melhores oportunidades de lucro hoje...",
-        "💰 Mestre das Odds na área! Analisando os campos para vocês...",
-        "⚽ Hora de caçar o Green! Varredura de mercados iniciada...",
-        "🔥 O Robô Trader está no comando! Vamos ver o que o dia reserva..."
+        "⚽ O VAR do Lucro entrou em campo! Analisando os lances de hoje...",
+        "🏃‍♂️ Corrida para o Green iniciada! O Robô está em campo...",
+        "🧐 Olho no lance! O VAR do Lucro está revisando as odds da Bet365...",
+        "🏆 Bola rolando e o VAR na espreita. Buscando o gol da vitória...",
+        "⚡ Escalação definida: O VAR do Lucro está pronto para buscar o lucro!"
     ]
-    import random
     enviar_telegram(random.choice(frases_inicio))
     
-    # ... resto do seu código ...
     agora = datetime.utcnow()
     janela_limite = agora + timedelta(hours=8)
     data_hoje = datetime.now().strftime('%Y-%m-%d')
@@ -85,6 +82,7 @@ def executar_analise():
                       agora <= datetime.strptime(j['fixture']['date'], '%Y-%m-%dT%H:%M:%S+00:00') <= janela_limite]
 
     if not jogos_do_turno:
+        enviar_telegram("⚠️ Nenhuma oportunidade de valor encontrada nas próximas 8 horas. O VAR segue monitorando...")
         return
 
     for jogo in jogos_do_turno:
@@ -93,7 +91,7 @@ def executar_analise():
         fora_nome = traduzir(jogo['teams']['away']['name'])
         
         analise = analisar_com_ia_e_dados(jogo, liga)
-        enviar_telegram(f"🔍 *RELATÓRIO DE INTELIGÊNCIA*\n{casa_nome} vs {fora_nome}\n\n{analise}")
+        enviar_telegram(f"🔍 *RELATÓRIO DE INTELIGÊNCIA*\n{casa_nome} vs {fora_nome}\n\n{analise}\n\n👉 *Confira na Bet365!*")
 
 if __name__ == "__main__":
     executar_analise()
