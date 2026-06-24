@@ -1,8 +1,8 @@
 import os
 import requests
-import google.generativeai as genai
 import random
 import subprocess
+from google import genai
 from datetime import datetime, timedelta
 from deep_translator import GoogleTranslator
 import config # Importa as ligas do arquivo config.py
@@ -12,7 +12,7 @@ TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('CHAT_ID')
 ADMIN_ID = "747956770"
 API_FOOTBALL_KEY = os.getenv('API_FOOTBALL_KEY')
-genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+cliente = genai.Client(api_key=os.getenv('GEMINI_API_KEY'))
 model = genai.GenerativeModel('gemini-2.0-flash')
 
 def enviar_telegram(texto, chat_id=CHAT_ID, reply_markup=None):
