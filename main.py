@@ -4,7 +4,7 @@ import random
 import time
 from datetime import datetime, timedelta
 from deep_translator import GoogleTranslator
-from google import genai 
+import google.generativeai as genai # <-- BIBLIOTECA CLÁSSICA E ESTÁVEL
 
 # --- Configurações Principais ---
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -15,8 +15,10 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 # --- Ligas VIPs ---
 LIGAS_PRIORITARIAS = [1, 2, 3, 13, 71, 72, 73, 39, 140, 135, 78, 61, 848, 866]
 
-# --- Inicialização da IA (Sintaxe Nova) ---
-client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+# --- Inicialização da IA (Sintaxe Clássica) ---
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel('gemini-1.5-flash')
 
 # --- Funções Utilitárias ---
 def enviar_telegram(texto, chat_id=CHAT_ID):
@@ -69,7 +71,7 @@ def processar_updates():
             user_id = msg["from"]["id"]
             msg_date = msg["date"]
 
-            # 1. VERIFICAÇÃO DE NOVOS MEMBROS 
+            # 1. VERIFICAÇÃO DE NOVOS MEMBROS
             if "new_chat_members" in msg and (agora_timestamp - msg_date < 32400):
                 for novo_membro in msg["new_chat_members"]:
                     if novo_membro["is_bot"]: continue
@@ -132,29 +134,22 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
     REGRAS: > 65% de confiança. Justificativa curta (máx 15 palavras). Formato: [Mercado]: [Sugestão] (Confiança: X%) - [Justificativa].
     """
     try:
-        # AJUSTE CHAVE: Nome completo do modelo (gemini-1.5-flash-latest) para não dar 404
-        response = client.models.generate_content(
-            model='gemini-1.5-flash-latest',
-            contents=prompt
-        )
+        response = model.generate_content(prompt)
         return response.text if response.text else "⚠️ IA não retornou análise."
     except Exception as e:
         return f"⚠️ Erro na análise da IA: {str(e)}"
 
-# --- Execução Principal de Análise (Programada) ---
+# --- Execução Principal de Análise ---
 def executar_analise():
     hora_utc = datetime.utcnow()
     hora_brt = hora_utc - timedelta(hours=3)
     
     if 5 <= hora_brt.hour < 7:
         janela_horas = 9  
-        print("🌅 Rodada Manhã. Janela de 9 horas.")
     elif 12 <= hora_brt.hour < 14:
         janela_horas = 11 
-        print("☀️ Rodada Tarde. Janela de 11 horas.")
     else:
         janela_horas = 12 
-        print("⚠️ Rodando fora da janela padrão. Janela de 12 horas.")
 
     url_api = "https://v3.football.api-sports.io/fixtures"
     headers = {'x-apisports-key': API_FOOTBALL_KEY}
@@ -163,9 +158,7 @@ def executar_analise():
     try:
         resposta = requests.get(url_api, headers=headers, params=params, timeout=15)
         jogos = resposta.json().get('response', [])
-        print(f"DEBUG: Pacote recebido: {len(jogos)} jogos no mundo.")
     except Exception as e:
-        print(f"❌ Erro na API: {e}")
         return
 
     agora_utc = datetime.utcnow()
@@ -180,8 +173,6 @@ def executar_analise():
                 agora_utc <= fixture_date_utc <= limite_utc):
                 jogos_validos.append(j)
         except: continue
-
-    print(f"DEBUG: Após filtro VIP, restaram {len(jogos_validos)} jogos.")
 
     if not jogos_validos:
         enviar_telegram("⚠️ Nenhuma oportunidade VIP encontrada nas próximas horas. O VAR segue de olho...")
@@ -198,7 +189,7 @@ def executar_analise():
         msg_final = f"🔍 *RELATÓRIO DE INTELIGÊNCIA*\n⚽ *{casa}* vs *{fora}*\n🏆 {liga}\n\n{analise}\n\n👉 *Aposta sugerida? Confira na sua Casa favorita!*"
         enviar_telegram(msg_final)
         
-        time.sleep(6) 
+        time.sleep(6) # 6 Segundos para a IA não te bloquear
 
 # --- Resumo do Dia ---
 def enviar_resumo_do_dia():
@@ -230,7 +221,7 @@ if __name__ == "__main__":
     foi_comando_manual = processar_updates()
     
     if foi_comando_manual:
-        print("DEBUG: Execução manual de comando concluída com sucesso. Pulando rotina agendada.")
+        pass
     else:
         hora_brt = datetime.utcnow() - timedelta(hours=3)
         
