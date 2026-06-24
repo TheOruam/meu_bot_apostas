@@ -12,10 +12,8 @@ API_FOOTBALL_KEY = '418766ef4ec5450f1cab64d32229ddee'
 # Carrega a chave de forma segura
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
-# Configuração Gemini com correção de versão
+# Configuração Gemini - Chamada direta ao modelo estável
 genai.configure(api_key=GEMINI_API_KEY)
-# Força o uso da versão v1 estável para evitar erros 404
-genai.get_default_api_version = lambda: 'v1'
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 LIGAS_PRIORITARIAS = [1, 71, 72, 73, 39, 140, 135, 78, 61, 2] 
@@ -30,11 +28,12 @@ def traduzir(texto):
 
 def analisar_com_ia(casa, fora, liga_nome):
     try:
+        # Usamos generate_content diretamente do modelo configurado
         prompt = f"Analise o jogo {casa} vs {fora} pela {liga_nome}. Forneça uma análise técnica para apostas na Bet365: 1. Análise breve, 2. Sugestão de mercado (Vencedor, Gols ou Ambas), 3. Confiança %. Seja direto em português."
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        return f"⚠️ Análise IA indisponível: {str(e)}"
+        return f"⚠️ IA indisponível. Erro técnico: {str(e)}"
 
 def executar_analise():
     agora = datetime.utcnow()
