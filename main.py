@@ -7,51 +7,43 @@ TELEGRAM_TOKEN = '8983808854:AAH36YnSLE2ACY_1s5wSDhxQgCUbs66VzlA'
 CHAT_ID = '747956770'
 API_FOOTBALL_KEY = '418766ef4ec5450f1cab64d32229ddee'
 
+# Ligas Selecionadas (Economiza seu limite de 100 requisições diárias)
+# 71=Brasileirão A, 72=Brasileirão B, 73=Copa do Brasil, 39=Premier League, 140=La Liga, 2=Champions
+LIGAS_PRIORITARIAS = [1, 71, 72, 73, 39, 140, 135, 78, 61, 2] 
+
 def enviar_telegram(texto):
     requests.post(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage", 
                   json={"chat_id": CHAT_ID, "text": texto, "parse_mode": "Markdown"})
 
 def executar_analise():
     data_hoje = datetime.now().strftime('%Y-%m-%d')
-    # Busca a lista de jogos
-    jogos_resposta = requests.get("https://v3.football.api-sports.io/fixtures", 
-                                  headers={'x-apisports-key': API_FOOTBALL_KEY}, 
-                                  params={'date': data_hoje})
+    # 1. Busca lista de jogos (1 requisição)
+    resposta = requests.get("https://v3.football.api-sports.io/fixtures", 
+                            headers={'x-apisports-key': API_FOOTBALL_KEY}, 
+                            params={'date': data_hoje})
     
-    if jogos_resposta.status_code != 200:
-        enviar_telegram("❌ Erro ao buscar lista de jogos.")
+    jogos = resposta.json().get('response', [])
+    
+    # 2. Filtro eficiente: Só processa o que interessa
+    jogos_filtrados = [j for j in jogos if j['league']['id'] in LIGAS_PRIORITARIAS and j['fixture']['status']['short'] == 'NS']
+    
+    if not jogos_filtrados:
+        enviar_telegram(f"✅ Varredura concluída. Nenhum jogo das ligas monitoradas encontrado para hoje.")
         return
 
-    jogos = jogos_resposta.json().get('response', [])
-    jogos_pendentes = [j for j in jogos if j['fixture']['status']['short'] == 'NS']
-    
-    if not jogos_pendentes:
-        enviar_telegram(f"✅ Varredura concluída. Nenhum jogo pendente.")
-        return
+    enviar_telegram(f"🚀 Iniciando análise de {len(jogos_filtrados)} jogos prioritários...")
 
-    enviar_telegram(f"🚀 Iniciando análise (limite de 90 jogos)...")
-
-    analisados = 0
-    for jogo in jogos_pendentes:
-        if analisados >= 90: 
-            enviar_telegram("⚠️ Limite diário de 90 análises atingido para economizar a API.")
-            break
-        
+    # 3. Processamento focado
+    for jogo in jogos_filtrados:
         id_jogo = jogo['fixture']['id']
         casa = jogo['teams']['home']['name']
         fora = jogo['teams']['away']['name']
         
-        # Consulta de previsão
         pred_resp = requests.get("https://v3.football.api-sports.io/predictions", 
                                  headers={'x-apisports-key': API_FOOTBALL_KEY}, 
                                  params={'fixture': id_jogo})
         
-        if pred_resp.status_code == 429: # Erro de excesso de chamadas
-            enviar_telegram("❌ API Bloqueou: Limite de requisições diárias atingido.")
-            break
-            
         pred = pred_resp.json().get('response', [])
-        
         if pred:
             p = pred[0]['predictions']['percent']
             try:
@@ -65,8 +57,6 @@ def executar_analise():
                              f"📈 Chance: {maior_chance}%\n"
                              f"💡 {sugestao}")
                     enviar_telegram(texto)
-                
-                analisados += 1
             except: continue
 
 if __name__ == "__main__":
