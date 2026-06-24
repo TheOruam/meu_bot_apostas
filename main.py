@@ -86,4 +86,10 @@ def executar_analise():
         enviar_telegram(f"🔍 *RELATÓRIO DE INTELIGÊNCIA*\n{casa_nome} vs {fora_nome}\n\n{analise}")
 
 if __name__ == "__main__":
-    executar_analise()
+    # Teste de comunicação forçada
+    try:
+        enviar_telegram("🤖 Robô de Inteligência Iniciando Varredura...")
+        executar_analise()
+        enviar_telegram("✅ Varredura concluída.")
+    except Exception as e:
+        enviar_telegram(f"❌ Erro crítico no bot: {str(e)}")
