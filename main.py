@@ -1,6 +1,6 @@
 import os
 import requests
-import google.generativeai as genai
+import google-genai as genai
 import random
 import time
 from datetime import datetime, timedelta
