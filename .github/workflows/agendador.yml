@@ -30,7 +30,7 @@ jobs:
       # 3. Instala as bibliotecas necessárias
       - name: Install dependencies
         run: |
-          pip isntall --upgrade pip
+          pip install --upgrade pip
           pip install requests google-genai deep-translator
         
       # 4. Executa o Bot passando os Segredos como variáveis de ambiente
