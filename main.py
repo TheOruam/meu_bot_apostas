@@ -12,7 +12,7 @@ API_FOOTBALL_KEY = '418766ef4ec5450f1cab64d32229ddee'
 # Carrega a chave de forma segura do GitHub Secrets
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel(model_name='gemini-1.5-flash')
 
 LIGAS_PRIORITARIAS = [1, 71, 72, 73, 39, 140, 135, 78, 61, 2] 
 
