@@ -13,31 +13,44 @@ def enviar_telegram(texto):
 
 def executar_analise():
     data_hoje = datetime.now().strftime('%Y-%m-%d')
+    # Busca a lista de jogos
     jogos_resposta = requests.get("https://v3.football.api-sports.io/fixtures", 
                                   headers={'x-apisports-key': API_FOOTBALL_KEY}, 
                                   params={'date': data_hoje})
     
+    if jogos_resposta.status_code != 200:
+        enviar_telegram("❌ Erro ao buscar lista de jogos.")
+        return
+
     jogos = jogos_resposta.json().get('response', [])
     jogos_pendentes = [j for j in jogos if j['fixture']['status']['short'] == 'NS']
     
-    # Se não houver nada para analisar
     if not jogos_pendentes:
-        enviar_telegram(f"✅ *Status Diário ({data_hoje}):*\nVarredura concluída. Nenhum jogo novo pendente para hoje.")
+        enviar_telegram(f"✅ Varredura concluída. Nenhum jogo pendente.")
         return
 
-    enviar_telegram(f"🚀 Iniciando análise de {len(jogos_pendentes)} jogos pendentes...")
+    enviar_telegram(f"🚀 Iniciando análise (limite de 90 jogos)...")
 
     analisados = 0
     for jogo in jogos_pendentes:
-        if analisados >= 50: break # Limite de segurança para não estourar a API
+        if analisados >= 90: 
+            enviar_telegram("⚠️ Limite diário de 90 análises atingido para economizar a API.")
+            break
         
         id_jogo = jogo['fixture']['id']
         casa = jogo['teams']['home']['name']
         fora = jogo['teams']['away']['name']
         
-        pred = requests.get("https://v3.football.api-sports.io/predictions", 
-                            headers={'x-apisports-key': API_FOOTBALL_KEY}, 
-                            params={'fixture': id_jogo}).json().get('response', [])
+        # Consulta de previsão
+        pred_resp = requests.get("https://v3.football.api-sports.io/predictions", 
+                                 headers={'x-apisports-key': API_FOOTBALL_KEY}, 
+                                 params={'fixture': id_jogo})
+        
+        if pred_resp.status_code == 429: # Erro de excesso de chamadas
+            enviar_telegram("❌ API Bloqueou: Limite de requisições diárias atingido.")
+            break
+            
+        pred = pred_resp.json().get('response', [])
         
         if pred:
             p = pred[0]['predictions']['percent']
@@ -52,6 +65,7 @@ def executar_analise():
                              f"📈 Chance: {maior_chance}%\n"
                              f"💡 {sugestao}")
                     enviar_telegram(texto)
+                
                 analisados += 1
             except: continue
 
