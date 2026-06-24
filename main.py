@@ -12,9 +12,9 @@ API_FOOTBALL_KEY = '418766ef4ec5450f1cab64d32229ddee'
 # Carrega a chave de forma segura
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
-# Configuração Gemini - Chamada direta ao modelo estável
+# Configuração Gemini - Usando gemini-pro (mais compatível)
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-1.5-flash')
+model = genai.GenerativeModel('gemini-pro')
 
 LIGAS_PRIORITARIAS = [1, 71, 72, 73, 39, 140, 135, 78, 61, 2] 
 
@@ -28,7 +28,6 @@ def traduzir(texto):
 
 def analisar_com_ia(casa, fora, liga_nome):
     try:
-        # Usamos generate_content diretamente do modelo configurado
         prompt = f"Analise o jogo {casa} vs {fora} pela {liga_nome}. Forneça uma análise técnica para apostas na Bet365: 1. Análise breve, 2. Sugestão de mercado (Vencedor, Gols ou Ambas), 3. Confiança %. Seja direto em português."
         response = model.generate_content(prompt)
         return response.text
