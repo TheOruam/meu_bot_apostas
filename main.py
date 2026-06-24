@@ -5,7 +5,7 @@ import random
 from datetime import datetime, timedelta
 from deep_translator import GoogleTranslator
 
-# Configurações - Puxa o token do GitHub Secrets automaticamente
+# Configurações
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = '747956770' 
 API_FOOTBALL_KEY = '418766ef4ec5450f1cab64d32229ddee'
@@ -17,13 +17,32 @@ model = genai.GenerativeModel('gemini-2.0-flash')
 
 LIGAS_PRIORITARIAS = [1, 71, 72, 73, 39, 140, 135, 78, 61, 2] 
 
-def enviar_telegram(texto):
+def enviar_telegram(texto, chat_id=CHAT_ID):
     requests.post(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage", 
-                  json={"chat_id": CHAT_ID, "text": texto, "parse_mode": "Markdown"})
+                  json={"chat_id": chat_id, "text": texto, "parse_mode": "Markdown"})
 
 def traduzir(texto):
     try: return GoogleTranslator(source='auto', target='pt').translate(texto)
     except: return texto
+
+# Função para responder ao comando /start
+def checar_comandos():
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
+    resposta = requests.get(url).json()
+    if "result" in resposta:
+        for update in resposta["result"]:
+            if "message" in update and update["message"].get("text") == "/start":
+                chat_id = update["message"]["chat"]["id"]
+                boas_vindas = (
+                    "⚽ **GOOOOOOL!** Seja bem-vindo ao **VAR do Lucro**, o único lugar onde o VAR nunca erra o impedimento e a gente só comemora Green! 🟢\n\n"
+                    "Você acaba de ser escalado para o time que não vive de palpite, vive de análise! Nosso robô é um 'fominha' por dados: ele varre os campos, checa o clima, verifica as lesões e só te manda a bola quando o gol está aberto.\n\n"
+                    "🚀 **Como jogar com a gente:**\n"
+                    "1. **Ative as notificações:** Quando o VAR apitar, é porque a oportunidade é de ouro.\n"
+                    "2. **Não inventa moda:** O robô sabe o que faz, segue a gestão que o Green vem!\n"
+                    "3. **Resenha liberada:** Pode comemorar o lucro aqui no grupo.\n\n"
+                    "O árbitro já autorizou a saída de bola. Vamos pra cima da banca? 💰🔥"
+                )
+                enviar_telegram(boas_vindas, chat_id)
 
 def analisar_com_ia_e_dados(jogo_dados, liga_nome):
     casa = jogo_dados['teams']['home']['name']
@@ -31,26 +50,12 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
     
     prompt = f"""
     Você é o 'VAR do Lucro', um analista de apostas de elite. Identifique 'Value Bets' no confronto: {casa} vs {fora} ({liga_nome}).
-    
-    ETAPA 1: INVESTIGAÇÃO
-    - Considere dados reais (lesões, escalações, clima, notícias recentes de FBref, WhoScored, Flashscore).
-    
-    ETAPA 2: ANÁLISE DE VALOR
-    - Só sugira se a confiança for superior a 65%.
-    - Estime a 'Odd Justa' para comparação com a Bet365.
-    
-    ETAPA 3: ENTREGA (Direta e Técnica)
-    Sugira 3 mercados da Bet365:
-    1. RESULTADO: (1x2 ou Handicap Asiático).
-    2. GOLS: (Over/Under ou Ambas Marcam).
-    3. ESTATÍSTICAS: (Escanteios ou Cartões).
-    
-    REGRAS:
-    - Justificativa técnica (máx. 15 palavras).
-    - Se incerto, indique: "Jogo de alta incerteza. Evitar apostas."
-    - Formato: [Nome do Mercado]: [Sugestão] (Confiança: X%) - Justificativa.
+    ETAPA 1: INVESTIGAÇÃO - Considere dados reais (lesões, escalações, clima, notícias de FBref, WhoScored).
+    ETAPA 2: ANÁLISE - Só sugira se a confiança for > 65%. Estime a 'Odd Justa'.
+    ETAPA 3: ENTREGA - Sugira 3 mercados (1x2/Handicap, Gols, Estatísticas).
+    REGRAS: Justificativa (máx 15 palavras). Se incerto, diga: "Jogo de alta incerteza. Evitar apostas."
+    Formato: [Nome do Mercado]: [Sugestão] (Confiança: X%) - Justificativa.
     """
-    
     try:
         response = model.generate_content(prompt)
         return response.text
@@ -58,7 +63,6 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
         return f"⚠️ Erro na análise: {str(e)}"
 
 def executar_analise():
-    # Frases de início divertidas para o seu bot
     frases_inicio = [
         "⚽ O VAR do Lucro entrou em campo! Analisando os lances de hoje...",
         "🏃‍♂️ Corrida para o Green iniciada! O Robô está em campo...",
@@ -89,9 +93,9 @@ def executar_analise():
         liga = traduzir(jogo['league']['name'])
         casa_nome = traduzir(jogo['teams']['home']['name'])
         fora_nome = traduzir(jogo['teams']['away']['name'])
-        
         analise = analisar_com_ia_e_dados(jogo, liga)
         enviar_telegram(f"🔍 *RELATÓRIO DE INTELIGÊNCIA*\n{casa_nome} vs {fora_nome}\n\n{analise}\n\n👉 *Confira na Bet365!*")
 
 if __name__ == "__main__":
+    checar_comandos()
     executar_analise()
