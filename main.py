@@ -14,25 +14,21 @@ def enviar_telegram(texto):
     requests.post(url, json={"chat_id": CHAT_ID, "text": texto, "parse_mode": "Markdown"})
 
 def buscar_odds_bet365(time_casa, time_fora):
-    """Busca as cotações atuais na Bet365 para o confronto desejado"""
-    # Buscamos os próximos jogos de futebol geral na API de Odds
+    """Busca as cotacoes atuais na Bet365 para o confronto desejado"""
     url_odds = "https://api.the-odds-api.com/v4/sports/upcoming/odds/"
     params = {
         'apiKey': ODDS_API_KEY,
-        'regions': 'eu',      # Região padrão que engloba a Bet365 mundial
-        'markets': 'h2h',     # Mercado de Resultado Final
+        'regions': 'eu',
+        'markets': 'h2h',
         'bookmakers': 'bet365'
     }
     try:
         resposta = requests.get(url_odds, params=params)
         dados_odds = resposta.json()
         
-        # Procura no banco de dados de odds o jogo que combine com os nossos times
         for jogo in dados_odds:
             home_api = jogo.get('home_team', '').lower()
-            away_api = jogo.get('away_team', '').lower()
             
-            # Verificação por proximidade de nome (evita problemas se um nome estiver abreviado)
             if time_casa.lower() in home_api or home_api in time_casa.lower():
                 for bookmaker in jogo.get('bookmakers', []):
                     if bookmaker.get('key') == 'bet365':
@@ -65,16 +61,13 @@ def executar_analise():
             enviar_telegram(f"🤖 *Status de Hoje ({data_hoje}):*\nO robô rodou com sucesso, mas nenhum jogo foi localizado para análise na temporada atual.")
             return
 
-        # Pega o primeiro jogo do dia para a análise detalhada
         primeiro_jogo = jogos[0]
         id_jogo = primeiro_jogo['fixture']['id']
         time_casa = primeiro_jogo['teams']['home']['name']
         time_fora = primeiro_jogo['teams']['away']['name']
         
-        # Executa a busca em paralelo da cotação de mercado
         odds_encontradas = buscar_odds_bet365(time_casa, time_fora)
         
-        # Busca a previsão estatística do algoritmo
         url_predictions = "https://v3.football.api-sports.io/predictions"
         resp_pred = requests.get(url_predictions, headers=headers_football, params={'fixture': id_jogo})
         previsao_dados = resp_pred.json().get('response', [])
@@ -83,7 +76,6 @@ def executar_analise():
             porcentagens = previsao_dados[0]['predictions']['percent']
             dica_algoritmo = previsao_dados[0]['predictions']['advice']
             
-            # Monta o bloco de texto das odds se elas forem encontradas
             if odds_encontradas:
                 bloco_odds = (
                     f"💰 *Cotações atuais na Bet365:*\n"
@@ -95,4 +87,20 @@ def executar_analise():
                 bloco_odds = "💰 *Cotações Bet365:* Jogo não localizado no catálogo atual da API de odds.\n\n"
             
             texto_analise = (
-                f"📊 *Nova Análise de Jogo*\n\n
+                f"📊 *Nova Análise de Jogo*\n\n"
+                f"⚽ *Confronto:* {time_casa} vs {time_fora}\n"
+                f"📅 *Data:* {data_hoje}\n\n"
+                f"📈 *Probabilidades do Algoritmo:*\n"
+                f"🏠 Vitória Casa: {porcentagens.get('home')}\n"
+                f"🤝 Empate: {porcentagens.get('draw')}\n"
+                f"✈️ Vitória Fora: {porcentagens.get('away')}\n\n"
+                f"{bloco_odds}"
+                f"💡 *Sugestão:* {dica_algoritmo}"
+            )
+            enviar_telegram(texto_analise)
+            
+    except Exception as e:
+        enviar_telegram(f"❌ *Erro no Robô:* Falha técnica durante o processamento: {e}")
+
+if __name__ == "__main__":
+    executar_analise()
