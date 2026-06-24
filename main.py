@@ -29,13 +29,30 @@ def checar_comandos_e_saudar():
 def executar_analise():
     print("DEBUG: Iniciando busca de jogos na API...")
     
-    # Adicione esse print logo após a chamada da API (onde você busca os dados)
+    # URL e Headers (ajuste conforme o seu código atual)
     # Exemplo:
-    # resposta = requests.get(url_da_api)
-    # print(f"DEBUG: Resposta da API: {resposta.status_code}")
+    # url = "https://api-football-v1.p.rapidapi.com/v3/fixtures?..."
+    # headers = {"x-rapidapi-key": API_FOOTBALL_KEY, ...}
     
-    # Se você tiver uma lista de jogos, adicione:
-    # print(f"DEBUG: Quantidade de jogos encontrados: {len(lista_jogos)}")
+    try:
+        # AQUI VOCÊ FAZ A CHAMADA DA SUA API
+        # Exemplo: response = requests.get(url, headers=headers)
+        
+        # --- ADICIONE ESTAS LINHAS APÓS A CHAMADA ---
+        # print(f"DEBUG: Status Code da API: {response.status_code}")
+        # data = response.json()
+        # print(f"DEBUG: Resposta completa da API: {data}")
+        
+        # Se você filtra jogos aqui, adicione um print na contagem:
+        # jogos = data.get('response', [])
+        # print(f"DEBUG: Quantidade de jogos encontrados: {len(jogos)}")
+        
+        # if len(jogos) == 0:
+        #     print("DEBUG: Nenhum jogo encontrado para as ligas configuradas.")
+        #     return
+        
+    except Exception as e:
+        print(f"DEBUG: Ocorreu um erro na requisição: {e}")
     pass
 
 # --- Fluxo Principal (Onde o bot começa) ---
