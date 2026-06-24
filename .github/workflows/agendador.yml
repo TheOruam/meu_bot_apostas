@@ -1,16 +1,13 @@
 name: Bot VAR do Lucro
-# Define os horários de execução (UTC)
+
 on:
   schedule:
     # Rodada 1: 06:00 Horário de Brasília (BRT)
     - cron: '0 9 * * *'
-    
     # Rodada 2: 13:00 Horário de Brasília (BRT)
     - cron: '0 16 * * *'
-    
-    # Rodada 3: 23:00 Horário de Brasília (BRT) (02:00 UTC do dia seguinte)
+    # Rodada 3: 23:00 Horário de Brasília (BRT)
     - cron: '0 2 * * *'
-    
   # Permite rodar manualmente para testes
   workflow_dispatch:
 
@@ -32,13 +29,12 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install requests google-genai deep-translator
-        
-      # 4. Executa o Bot passando os Segredos como variáveis de ambiente
-  - name: Run Bot
+          
+      # 4. Executa o Bot passando os Segredos
+      - name: Run Bot
         run: python main.py
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python main.py
