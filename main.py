@@ -31,40 +31,43 @@ def enviar_telegram(texto):
         print(f"DEBUG: Erro ao conectar com Telegram: {e}")
 
 def executar_analise():
-    """Busca jogos do dia usando o endpoint do RapidAPI."""
-    print("DEBUG: Iniciando busca de jogos no RapidAPI...")
+    """Busca jogos do dia usando a conexão DIRETA da API-Sports."""
+    print("DEBUG: Iniciando busca de jogos (Conexão Direta API-Sports)...")
     
-    # URL DO RAPIDAPI (Obrigatório para sua assinatura)
-    url_api = "https://api-football-v1.p.rapidapi.com/v3/fixtures"
+    # URL DIRETA (A que estava funcionando ontem)
+    url_api = "https://v3.football.api-sports.io/fixtures"
     
-    # Cabeçalhos CRUCIAIS para o RapidAPI
+    # CABEÇALHO DIRETO (Atenção ao nome: x-apisports-key)
     headers = {
-        'x-rapidapi-key': API_FOOTBALL_KEY,
-        'x-rapidapi-host': "api-football-v1.p.rapidapi.com"
+        'x-apisports-key': API_FOOTBALL_KEY
     }
     
     # Data de hoje
-    hora_brt = datetime.utcnow() - timedelta(hours=3)
+    hora_utc = datetime.utcnow()
+    hora_brt = hora_utc - timedelta(hours=3)
     data_hoje = hora_brt.strftime('%Y-%m-%d')
     params = {'date': data_hoje}
     
     try:
         resposta = requests.get(url_api, headers=headers, params=params, timeout=15)
-        print(f"DEBUG: Status Code: {resposta.status_code}")
+        print(f"DEBUG: Status Code da API: {resposta.status_code}")
         
-        if resposta.status_code != 200:
+        if resposta.status_code == 200:
+            jogos = resposta.json().get('response', [])
+            print(f"DEBUG: SUCESSO! A API retornou {len(jogos)} jogos no total.")
+            enviar_telegram(f"✅ Conexão restabelecida! A API encontrou {len(jogos)} jogos.")
+        else:
             print(f"DEBUG: Erro na API: {resposta.text}")
             enviar_telegram(f"⚠️ Erro na API: {resposta.status_code}")
             return
-
-        jogos = resposta.json().get('response', [])
-        
+            
     except Exception as e:
         print(f"❌ Erro crítico ao conectar na API de Futebol: {e}")
         return
 
-    # O resto do seu código (filtragem, análise, etc) continua aqui embaixo...
-    # (Copie a lógica de filtragem que você já tem no seu arquivo original)
+    # --- AQUI COMEÇA O SEU CÓDIGO DE FILTRAGEM (Pode manter o seu igual) ---
+    print("DEBUG: Iniciando filtro de ligas e horários...")
+    # (resto do código...)
 
 if __name__ == "__main__":
     print("DEBUG: --- INICIANDO EXECUÇÃO ---")
