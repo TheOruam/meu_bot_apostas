@@ -2,8 +2,12 @@ name: Rodar Robo de Apostas
 
 on:
   schedule:
-    # Define o horário de execução em formato UTC (09:00 UTC equivale a 06:00 no horário de Brasília)
-    - cron: '0 9 * * *'
+    # 06:00 BRT (09:00 UTC) - Pega os jogos que começam de manhã/cedo
+    - cron: '0 9 * * *' 
+    # 12:00 BRT (15:00 UTC) - Pega os jogos da tarde
+    - cron: '0 15 * * *'
+    # 18:00 BRT (21:00 UTC) - Pega os jogos da noite
+    - cron: '0 21 * * *'
   workflow_dispatch: # Permite que você force a execução manualmente se quiser testar
 
 jobs:
