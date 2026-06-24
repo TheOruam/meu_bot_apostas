@@ -5,6 +5,8 @@ from datetime import datetime, timedelta, timezone
 from google import genai
 import config 
 
+print("DEBUG: Iniciando o script...")
+
 # --- Configurações ---
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('CHAT_ID')
@@ -40,3 +42,12 @@ if __name__ == "__main__":
         executar_analise()
     else:
         enviar_telegram("💤 O VAR do Lucro está em repouso.")
+
+print(f"DEBUG: Hora atual calculada: {hora_brt.hour}")
+
+if 5 <= hora_brt.hour < 21:
+    print("DEBUG: Entrou no intervalo de horário (05h-21h). Executando análise...")
+    executar_analise()
+else:
+    print("DEBUG: Fora do intervalo de análise. Bot em repouso.")
+    enviar_telegram("💤 O VAR do Lucro está em repouso (fora da janela de análise).")
