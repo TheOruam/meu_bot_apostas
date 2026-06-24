@@ -12,36 +12,25 @@ def enviar_telegram(texto):
     requests.post(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage", 
                   json={"chat_id": CHAT_ID, "text": texto, "parse_mode": "Markdown"})
 
-def buscar_odds_bet365(time_casa, time_fora):
-    url_odds = "https://api.the-odds-api.com/v4/sports/upcoming/odds/"
-    params = {'apiKey': ODDS_API_KEY, 'regions': 'eu', 'markets': 'h2h', 'bookmakers': 'bet365'}
-    try:
-        dados = requests.get(url_odds, params=params).json()
-        for jogo in dados:
-            if time_casa.lower() in jogo.get('home_team', '').lower():
-                for book in jogo.get('bookmakers', []):
-                    if book['key'] == 'bet365':
-                        outcomes = {o['name']: o['price'] for o in book['markets'][0]['outcomes']}
-                        return outcomes
-    except: return None
-
 def executar_analise():
     data_hoje = datetime.now().strftime('%Y-%m-%d')
-    # Busca todos os jogos do dia
+    # Ajuste: Apenas os 80 primeiros jogos para garantir que não estouraremos os 100 créditos da API
     jogos = requests.get("https://v3.football.api-sports.io/fixtures", 
                          headers={'x-apisports-key': API_FOOTBALL_KEY}, 
                          params={'date': data_hoje}).json().get('response', [])
 
     if not jogos:
-        enviar_telegram("🤖 Nenhum jogo encontrado para hoje.")
+        enviar_telegram("🤖 Nenhum jogo encontrado.")
         return
 
-    enviar_telegram(f"🚀 Iniciando varredura de {len(jogos)} jogos para hoje...")
+    enviar_telegram(f"🚀 Iniciando varredura otimizada (limite de 80 jogos)...")
 
+    # Contador para não estourar os 100 créditos da API
+    contador = 0
     for jogo in jogos:
-        # Filtra apenas jogos que ainda não começaram
-        if jogo['fixture']['status']['short'] != 'NS':
-            continue
+        if contador >= 80: break # Para de processar para economizar créditos
+        
+        if jogo['fixture']['status']['short'] != 'NS': continue
             
         id_jogo = jogo['fixture']['id']
         casa = jogo['teams']['home']['name']
@@ -51,27 +40,22 @@ def executar_analise():
                             headers={'x-apisports-key': API_FOOTBALL_KEY}, 
                             params={'fixture': id_jogo}).json().get('response', [])
         
+        contador += 1 # Conta a requisição de previsão usada
+        
         if pred:
             p = pred[0]['predictions']['percent']
             try:
                 home_p = int(p.get('home', '0').replace('%', ''))
                 away_p = int(p.get('away', '0').replace('%', ''))
                 maior_chance = max(home_p, away_p)
-            except: continue
-            
-            if maior_chance >= 60:
-                odds = buscar_odds_bet365(casa, fora)
-                sugestao = GoogleTranslator(source='en', target='pt').translate(pred[0]['predictions']['advice'])
                 
-                texto = (f"🔥 *OPORTUNIDADE (+60%):*\n{casa} vs {fora}\n"
-                         f"📈 Chance: {maior_chance}%\n"
-                         f"💰 Odd (Casa/Fora): {odds.get(casa, 'N/A')} / {odds.get(fora, 'N/A')}\n"
-                         f"💡 {sugestao}")
-                enviar_telegram(texto)
-            else:
-                # Opcional: Descomente a linha abaixo se quiser receber aviso de TODOS os jogos baixos
-                # enviar_telegram(f"⚠️ {casa} x {fora}: {maior_chance}% (Baixa chance)")
-                pass
+                if maior_chance >= 60:
+                    sugestao = GoogleTranslator(source='en', target='pt').translate(pred[0]['predictions']['advice'])
+                    texto = (f"🔥 *OPORTUNIDADE (+60%):*\n{casa} vs {fora}\n"
+                             f"📈 Chance: {maior_chance}%\n"
+                             f"💡 {sugestao}")
+                    enviar_telegram(texto)
+            except: continue
 
 if __name__ == "__main__":
     executar_analise()
