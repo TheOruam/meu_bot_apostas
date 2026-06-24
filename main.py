@@ -1,10 +1,10 @@
 import os
 import requests
-import google-genai as genai
 import random
 import time
 from datetime import datetime, timedelta
 from deep_translator import GoogleTranslator
+from google import genai # <--- Biblioteca Nova do Google
 
 # --- Configurações Principais ---
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -15,9 +15,8 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 # --- Ligas VIPs ---
 LIGAS_PRIORITARIAS = [1, 2, 3, 13, 71, 72, 73, 39, 140, 135, 78, 61, 848, 866]
 
-# --- Inicialização da IA ---
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-2.0-flash')
+# --- Inicialização da IA (Sintaxe Nova) ---
+client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 # --- Funções Utilitárias ---
 def enviar_telegram(texto, chat_id=CHAT_ID):
@@ -38,8 +37,6 @@ def traduzir(texto):
         return texto
 
 def verificar_se_eh_admin(chat_id, user_id):
-    """Verifica se o usuário que enviou o comando é administrador do grupo."""
-    # Se for chat privado com o bot, o próprio usuário é o "admin"
     if chat_id > 0:
         return True
     
@@ -55,7 +52,6 @@ def verificar_se_eh_admin(chat_id, user_id):
 
 # --- Central de Updates (Comandos e Novos Membros) ---
 def processar_updates():
-    """Processa novos membros e comandos disparados por administradores."""
     if not TELEGRAM_TOKEN: return False
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
     comando_executado = False
@@ -73,8 +69,7 @@ def processar_updates():
             user_id = msg["from"]["id"]
             msg_date = msg["date"]
 
-            # 1. VERIFICAÇÃO DE NOVOS MEMBROS (Conforme programado)
-            # Verifica se alguém entrou no grupo nas últimas 9 horas (tempo entre as rodadas cron)
+            # 1. VERIFICAÇÃO DE NOVOS MEMBROS
             if "new_chat_members" in msg and (agora_timestamp - msg_date < 32400):
                 for novo_membro in msg["new_chat_members"]:
                     if novo_membro["is_bot"]: continue
@@ -90,22 +85,16 @@ def processar_updates():
                         f"💰 Vamos pra cima da banca!"
                     )
                     enviar_telegram(msg_boas_vindas, chat_id_origem)
-                    print(f"DEBUG: Novo membro {nome_membro} saudado automaticamente.")
 
-            # 2. VERIFICAÇÃO DE COMANDOS MANUAIS (Executa na hora se for Admin)
+            # 2. VERIFICAÇÃO DE COMANDOS MANUAIS
             if "text" in msg:
                 texto = msg["text"].lower().strip()
                 
-                # Só aceita comandos enviados nos últimos 10 minutos (execução imediata manual)
                 if agora_timestamp - msg_date > 600:
                     continue
                 
                 if texto in ["/bomdia", "/bemvindo", "/start"]:
-                    print(f"DEBUG: Comando {texto} detectado. Validando privilégios...")
-                    
                     if verificar_se_eh_admin(chat_id_origem, user_id):
-                        user_name = msg["from"].get("first_name", "Admin")
-                        
                         if texto in ["/bemvindo", "/start"]:
                             msg_admin = (
                                 f"👋 **Fala, time! GOOOOOOL!**\n\n"
@@ -122,17 +111,14 @@ def processar_updates():
                             )
                             enviar_telegram(msg_admin, chat_id_origem)
                         
-                        print(f"DEBUG: Comando {texto} executado com sucesso pelo admin {user_name}.")
                         comando_executado = True
-                    else:
-                        print(f"DEBUG: Usuário {user_id} tentou usar o comando {texto} mas não é Admin. Ignorado.")
 
     except Exception as e:
         print(f"⚠️ Erro ao processar updates do Telegram: {e}")
     
     return comando_executado
 
-# --- Função de Análise com IA ---
+# --- Função de Análise com IA (Sintaxe Nova) ---
 def analisar_com_ia_e_dados(jogo_dados, liga_nome):
     casa = jogo_dados['teams']['home']['name']
     fora = jogo_dados['teams']['away']['name']
@@ -146,7 +132,11 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
     REGRAS: > 65% de confiança. Justificativa curta (máx 15 palavras). Formato: [Mercado]: [Sugestão] (Confiança: X%) - [Justificativa].
     """
     try:
-        response = model.generate_content(prompt)
+        # Nova forma de chamar o Gemini
+        response = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=prompt
+        )
         return response.text if response.text else "⚠️ IA não retornou análise."
     except Exception as e:
         return f"⚠️ Erro na análise da IA: {str(e)}"
@@ -236,14 +226,11 @@ def enviar_resumo_do_dia():
 
 # --- Fluxo de Entrada Principal ---
 if __name__ == "__main__":
-    # 1. Verifica se há comandos recentes de admins ou novos membros para saudar
     foi_comando_manual = processar_updates()
     
-    # 2. Se a execução foi para responder a um comando manual recente, paramos por aqui
     if foi_comando_manual:
         print("DEBUG: Execução manual de comando concluída com sucesso. Pulando rotina agendada.")
     else:
-        # Se não foi comando manual, segue a rotina programada por horário do cron
         hora_brt = datetime.utcnow() - timedelta(hours=3)
         
         if hora_brt.hour >= 23 or hora_brt.hour < 1:
