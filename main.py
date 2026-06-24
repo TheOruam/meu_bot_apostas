@@ -1,5 +1,6 @@
 import requests
 from datetime import datetime
+from deep_translator import GoogleTranslator
 
 # ==========================================
 # 1. SUAS CREDENCIAIS REAIS
@@ -14,34 +15,22 @@ def enviar_telegram(texto):
     requests.post(url, json={"chat_id": CHAT_ID, "text": texto, "parse_mode": "Markdown"})
 
 def buscar_odds_bet365(time_casa, time_fora):
-    """Busca as cotacoes atuais na Bet365 para o confronto desejado"""
     url_odds = "https://api.the-odds-api.com/v4/sports/upcoming/odds/"
-    params = {
-        'apiKey': ODDS_API_KEY,
-        'regions': 'eu',
-        'markets': 'h2h',
-        'bookmakers': 'bet365'
-    }
+    params = {'apiKey': ODDS_API_KEY, 'regions': 'eu', 'markets': 'h2h', 'bookmakers': 'bet365'}
     try:
         resposta = requests.get(url_odds, params=params)
         dados_odds = resposta.json()
-        
         for jogo in dados_odds:
             home_api = jogo.get('home_team', '').lower()
-            
             if time_casa.lower() in home_api or home_api in time_casa.lower():
                 for bookmaker in jogo.get('bookmakers', []):
                     if bookmaker.get('key') == 'bet365':
                         outcomes = bookmaker['markets'][0]['outcomes']
-                        
                         valores = {}
                         for o in outcomes:
-                            if o['name'] == jogo['home_team']:
-                                valores['casa'] = o['price']
-                            elif o['name'] == jogo['away_team']:
-                                valores['fora'] = o['price']
-                            else:
-                                valores['empate'] = o['price']
+                            if o['name'] == jogo['home_team']: valores['casa'] = o['price']
+                            elif o['name'] == jogo['away_team']: valores['fora'] = o['price']
+                            else: valores['empate'] = o['price']
                         return valores
     except Exception as e:
         print(f"Erro ao buscar odds de mercado: {e}")
@@ -58,7 +47,7 @@ def executar_analise():
         jogos = resp_fixtures.json().get('response', [])
 
         if not jogos:
-            enviar_telegram(f"🤖 *Status de Hoje ({data_hoje}):*\nO robô rodou com sucesso, mas nenhum jogo foi localizado para análise na temporada atual.")
+            enviar_telegram(f"🤖 *Status de Hoje ({data_hoje}):*\nO robô rodou com sucesso, mas nenhum jogo foi localizado.")
             return
 
         primeiro_jogo = jogos[0]
@@ -74,7 +63,13 @@ def executar_analise():
         
         if previsao_dados:
             porcentagens = previsao_dados[0]['predictions']['percent']
-            dica_algoritmo = previsao_dados[0]['predictions']['advice']
+            dica_algoritmo_ingles = previsao_dados[0]['predictions']['advice']
+            
+            # --- O TRADUTOR ENTRA AQUI ---
+            try:
+                dica_algoritmo = GoogleTranslator(source='en', target='pt').translate(dica_algoritmo_ingles)
+            except:
+                dica_algoritmo = dica_algoritmo_ingles # Mantém em inglês caso o tradutor falhe
             
             if odds_encontradas:
                 bloco_odds = (
