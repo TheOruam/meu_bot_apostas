@@ -62,3 +62,8 @@ def executar_analise():
 
 if __name__ == "__main__":
     executar_analise()
+
+if __name__ == "__main__":
+    # Linha de teste: adicione isso apenas para testar se ele envia algo
+    enviar_telegram("🤖 O robô está online e configurado com sucesso!")
+    executar_analise()
