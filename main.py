@@ -4,15 +4,19 @@ import google.generativeai as genai
 from datetime import datetime, timedelta
 from deep_translator import GoogleTranslator
 
-# Configurações fixas
+# Configurações
 TELEGRAM_TOKEN = '8983808854:AAH36YnSLE2ACY_1s5wSDhxQgCUbs66VzlA'
 CHAT_ID = '747956770'
 API_FOOTBALL_KEY = '418766ef4ec5450f1cab64d32229ddee'
 
-# Carrega a chave de forma segura do GitHub Secrets
+# Carrega a chave de forma segura
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+
+# Configuração Gemini com correção de versão
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel(model_name='gemini-1.5-flash')
+# Força o uso da versão v1 estável para evitar erros 404
+genai.get_default_api_version = lambda: 'v1'
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 LIGAS_PRIORITARIAS = [1, 71, 72, 73, 39, 140, 135, 78, 61, 2] 
 
