@@ -34,7 +34,8 @@ jobs:
           pip install requests google-genai deep-translator
         
       # 4. Executa o Bot passando os Segredos como variáveis de ambiente
-      - name: Run Bot
+  - name: Run Bot
+        run: python main.py
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
