@@ -27,6 +27,7 @@ def buscar_odds_bet365(time_casa, time_fora):
 
 def executar_analise():
     data_hoje = datetime.now().strftime('%Y-%m-%d')
+    # Busca todos os jogos do dia
     jogos = requests.get("https://v3.football.api-sports.io/fixtures", 
                          headers={'x-apisports-key': API_FOOTBALL_KEY}, 
                          params={'date': data_hoje}).json().get('response', [])
@@ -35,8 +36,13 @@ def executar_analise():
         enviar_telegram("🤖 Nenhum jogo encontrado para hoje.")
         return
 
-    # Analisa até os 5 primeiros jogos para não estourar limite da API
-    for jogo in jogos[:5]:
+    enviar_telegram(f"🚀 Iniciando varredura de {len(jogos)} jogos para hoje...")
+
+    for jogo in jogos:
+        # Filtra apenas jogos que ainda não começaram
+        if jogo['fixture']['status']['short'] != 'NS':
+            continue
+            
         id_jogo = jogo['fixture']['id']
         casa = jogo['teams']['home']['name']
         fora = jogo['teams']['away']['name']
@@ -47,9 +53,11 @@ def executar_analise():
         
         if pred:
             p = pred[0]['predictions']['percent']
-            home_p = int(p.get('home', '0').replace('%', ''))
-            away_p = int(p.get('away', '0').replace('%', ''))
-            maior_chance = max(home_p, away_p)
+            try:
+                home_p = int(p.get('home', '0').replace('%', ''))
+                away_p = int(p.get('away', '0').replace('%', ''))
+                maior_chance = max(home_p, away_p)
+            except: continue
             
             if maior_chance >= 60:
                 odds = buscar_odds_bet365(casa, fora)
@@ -57,11 +65,13 @@ def executar_analise():
                 
                 texto = (f"🔥 *OPORTUNIDADE (+60%):*\n{casa} vs {fora}\n"
                          f"📈 Chance: {maior_chance}%\n"
-                         f"💰 Odd: {odds.get(casa) if odds else 'N/A'}\n"
+                         f"💰 Odd (Casa/Fora): {odds.get(casa, 'N/A')} / {odds.get(fora, 'N/A')}\n"
                          f"💡 {sugestao}")
                 enviar_telegram(texto)
             else:
-                enviar_telegram(f"⚠️ *Alerta:* {casa} x {fora} (Chance baixa: {maior_chance}%)")
+                # Opcional: Descomente a linha abaixo se quiser receber aviso de TODOS os jogos baixos
+                # enviar_telegram(f"⚠️ {casa} x {fora}: {maior_chance}% (Baixa chance)")
+                pass
 
 if __name__ == "__main__":
     executar_analise()
