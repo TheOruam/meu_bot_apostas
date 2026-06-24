@@ -4,7 +4,7 @@ import random
 import time
 from datetime import datetime, timedelta
 from deep_translator import GoogleTranslator
-import google.generativeai as genai # <-- BIBLIOTECA CLÁSSICA E ESTÁVEL
+import google.generativeai as genai 
 
 # --- Configurações Principais ---
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -15,10 +15,11 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 # --- Ligas VIPs ---
 LIGAS_PRIORITARIAS = [1, 2, 3, 13, 71, 72, 73, 39, 140, 135, 78, 61, 848, 866]
 
-# --- Inicialização da IA (Sintaxe Clássica) ---
+# --- Inicialização da IA (Versão com Cota Grátis Ativa) ---
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    # Aqui está a mágica: Atualizado para o Gemini 2.5 Flash
+    model = genai.GenerativeModel('gemini-2.5-flash')
 
 # --- Funções Utilitárias ---
 def enviar_telegram(texto, chat_id=CHAT_ID):
@@ -189,7 +190,8 @@ def executar_analise():
         msg_final = f"🔍 *RELATÓRIO DE INTELIGÊNCIA*\n⚽ *{casa}* vs *{fora}*\n🏆 {liga}\n\n{analise}\n\n👉 *Aposta sugerida? Confira na sua Casa favorita!*"
         enviar_telegram(msg_final)
         
-        time.sleep(6) # 6 Segundos para a IA não te bloquear
+        # O intervalo de 6 segundos foi mantido para segurança
+        time.sleep(6) 
 
 # --- Resumo do Dia ---
 def enviar_resumo_do_dia():
