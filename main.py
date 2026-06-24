@@ -31,32 +31,40 @@ def enviar_telegram(texto):
         print(f"DEBUG: Erro ao conectar com Telegram: {e}")
 
 def executar_analise():
-    print("DEBUG: Iniciando busca de jogos na API...")
-    url = "https://api-football-v1.p.rapidapi.com/v3/fixtures"
-    data_hoje = datetime.now().strftime("%Y-%m-%d")
+    """Busca jogos do dia usando o endpoint do RapidAPI."""
+    print("DEBUG: Iniciando busca de jogos no RapidAPI...")
     
-    # Cabeçalhos obrigatórios para o RapidAPI
+    # URL DO RAPIDAPI (Obrigatório para sua assinatura)
+    url_api = "https://api-football-v1.p.rapidapi.com/v3/fixtures"
+    
+    # Cabeçalhos CRUCIAIS para o RapidAPI
     headers = {
-        "x-rapidapi-key": API_FOOTBALL_KEY,
-        "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+        'x-rapidapi-key': API_FOOTBALL_KEY,
+        'x-rapidapi-host': "api-football-v1.p.rapidapi.com"
     }
-    params = {"date": data_hoje}
+    
+    # Data de hoje
+    hora_brt = datetime.utcnow() - timedelta(hours=3)
+    data_hoje = hora_brt.strftime('%Y-%m-%d')
+    params = {'date': data_hoje}
     
     try:
-        response = requests.get(url, headers=headers, params=params, timeout=15)
-        print(f"DEBUG: Status Code da API: {response.status_code}")
+        resposta = requests.get(url_api, headers=headers, params=params, timeout=15)
+        print(f"DEBUG: Status Code: {resposta.status_code}")
         
-        if response.status_code == 200:
-            data = response.json()
-            jogos = data.get('response', [])
-            print(f"DEBUG: Jogos encontrados hoje: {len(jogos)}")
-            enviar_telegram(f"✅ API funcionando! Encontrei {len(jogos)} jogos hoje.")
-        else:
-            print(f"DEBUG: Erro na API. Resposta completa: {response.text}")
-            enviar_telegram(f"⚠️ Erro na API: {response.status_code}")
-            
+        if resposta.status_code != 200:
+            print(f"DEBUG: Erro na API: {resposta.text}")
+            enviar_telegram(f"⚠️ Erro na API: {resposta.status_code}")
+            return
+
+        jogos = resposta.json().get('response', [])
+        
     except Exception as e:
-        print(f"DEBUG: Ocorreu um erro na requisição: {e}")
+        print(f"❌ Erro crítico ao conectar na API de Futebol: {e}")
+        return
+
+    # O resto do seu código (filtragem, análise, etc) continua aqui embaixo...
+    # (Copie a lógica de filtragem que você já tem no seu arquivo original)
 
 if __name__ == "__main__":
     print("DEBUG: --- INICIANDO EXECUÇÃO ---")
