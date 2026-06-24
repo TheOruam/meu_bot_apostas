@@ -27,7 +27,15 @@ def checar_comandos_e_saudar():
     pass
 
 def executar_analise():
-    # ... (seu código de análise) ...
+    print("DEBUG: Iniciando busca de jogos na API...")
+    
+    # Adicione esse print logo após a chamada da API (onde você busca os dados)
+    # Exemplo:
+    # resposta = requests.get(url_da_api)
+    # print(f"DEBUG: Resposta da API: {resposta.status_code}")
+    
+    # Se você tiver uma lista de jogos, adicione:
+    # print(f"DEBUG: Quantidade de jogos encontrados: {len(lista_jogos)}")
     pass
 
 # --- Fluxo Principal (Onde o bot começa) ---
