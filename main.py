@@ -7,8 +7,6 @@ TELEGRAM_TOKEN = '8983808854:AAH36YnSLE2ACY_1s5wSDhxQgCUbs66VzlA'
 CHAT_ID = '747956770'
 API_FOOTBALL_KEY = '418766ef4ec5450f1cab64d32229ddee'
 
-# Ligas Selecionadas (Economiza seu limite de 100 requisições diárias)
-# 71=Brasileirão A, 72=Brasileirão B, 73=Copa do Brasil, 39=Premier League, 140=La Liga, 2=Champions
 LIGAS_PRIORITARIAS = [1, 71, 72, 73, 39, 140, 135, 78, 61, 2] 
 
 def enviar_telegram(texto):
@@ -17,23 +15,19 @@ def enviar_telegram(texto):
 
 def executar_analise():
     data_hoje = datetime.now().strftime('%Y-%m-%d')
-    # 1. Busca lista de jogos (1 requisição)
     resposta = requests.get("https://v3.football.api-sports.io/fixtures", 
                             headers={'x-apisports-key': API_FOOTBALL_KEY}, 
                             params={'date': data_hoje})
     
     jogos = resposta.json().get('response', [])
-    
-    # 2. Filtro eficiente: Só processa o que interessa
     jogos_filtrados = [j for j in jogos if j['league']['id'] in LIGAS_PRIORITARIAS and j['fixture']['status']['short'] == 'NS']
     
     if not jogos_filtrados:
-        enviar_telegram(f"✅ Varredura concluída. Nenhum jogo das ligas monitoradas encontrado para hoje.")
+        enviar_telegram("✅ Nenhum jogo das ligas monitoradas encontrado para hoje.")
         return
 
-    enviar_telegram(f"🚀 Iniciando análise de {len(jogos_filtrados)} jogos prioritários...")
+    enviar_telegram(f"🚀 Varredura: {len(jogos_filtrados)} jogos encontrados. Analisando...")
 
-    # 3. Processamento focado
     for jogo in jogos_filtrados:
         id_jogo = jogo['fixture']['id']
         casa = jogo['teams']['home']['name']
@@ -46,18 +40,20 @@ def executar_analise():
         pred = pred_resp.json().get('response', [])
         if pred:
             p = pred[0]['predictions']['percent']
-            try:
-                home_p = int(p.get('home', '0').replace('%', ''))
-                away_p = int(p.get('away', '0').replace('%', ''))
-                maior_chance = max(home_p, away_p)
-                
-                if maior_chance >= 60:
-                    sugestao = GoogleTranslator(source='en', target='pt').translate(pred[0]['predictions']['advice'])
-                    texto = (f"🔥 *OPORTUNIDADE (+60%):*\n{casa} vs {fora}\n"
-                             f"📈 Chance: {maior_chance}%\n"
-                             f"💡 {sugestao}")
-                    enviar_telegram(texto)
-            except: continue
+            home_p = int(p.get('home', '0').replace('%', ''))
+            away_p = int(p.get('away', '0').replace('%', ''))
+            maior_chance = max(home_p, away_p)
+            
+            # Se for oportunidade, manda mensagem chamativa
+            if maior_chance >= 60:
+                sugestao = GoogleTranslator(source='en', target='pt').translate(pred[0]['predictions']['advice'])
+                texto = (f"🔥 *OPORTUNIDADE (+60%):*\n{casa} vs {fora}\n"
+                         f"📈 Chance: {maior_chance}%\n"
+                         f"💡 {sugestao}")
+                enviar_telegram(texto)
+            else:
+                # SE NÃO FOR OPORTUNIDADE, envia um resumo discreto apenas para você saber que o robô checou
+                enviar_telegram(f"ℹ️ {casa} x {fora}: {maior_chance}% (Baixa chance)")
 
 if __name__ == "__main__":
     executar_analise()
