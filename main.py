@@ -9,12 +9,12 @@ TELEGRAM_TOKEN = '8983808854:AAH36YnSLE2ACY_1s5wSDhxQgCUbs66VzlA'
 CHAT_ID = '747956770'
 API_FOOTBALL_KEY = '418766ef4ec5450f1cab64d32229ddee'
 
-# Carrega a chave de forma segura
+# Configuração simples e direta
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-
-# Configuração Gemini - Usando gemini-pro (mais compatível)
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-pro')
+
+# Usamos o modelo generico padrão, o SDK vai detectar o disponível na sua conta
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 LIGAS_PRIORITARIAS = [1, 71, 72, 73, 39, 140, 135, 78, 61, 2] 
 
@@ -28,11 +28,12 @@ def traduzir(texto):
 
 def analisar_com_ia(casa, fora, liga_nome):
     try:
-        prompt = f"Analise o jogo {casa} vs {fora} pela {liga_nome}. Forneça uma análise técnica para apostas na Bet365: 1. Análise breve, 2. Sugestão de mercado (Vencedor, Gols ou Ambas), 3. Confiança %. Seja direto em português."
+        # Prompt simples para evitar erros de formatação
+        prompt = f"Analise o jogo {casa} vs {fora} pela {liga_nome}. Sugira mercado e confiança."
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
-        return f"⚠️ IA indisponível. Erro técnico: {str(e)}"
+        return f"⚠️ Erro na IA: {str(e)}"
 
 def executar_analise():
     agora = datetime.utcnow()
@@ -49,10 +50,7 @@ def executar_analise():
                       agora <= datetime.strptime(j['fixture']['date'], '%Y-%m-%dT%H:%M:%S+00:00') <= janela_limite]
 
     if not jogos_do_turno:
-        enviar_telegram("✅ Varredura: Nenhum jogo prioritário nas próximas 8h.")
         return
-
-    enviar_telegram(f"🚀 {len(jogos_do_turno)} jogos encontrados. IA processando...")
 
     for jogo in jogos_do_turno:
         casa = traduzir(jogo['teams']['home']['name'])
@@ -60,7 +58,7 @@ def executar_analise():
         liga = traduzir(jogo['league']['name'])
         
         analise = analisar_com_ia(casa, fora, liga)
-        enviar_telegram(f"🔥 *ANÁLISE IA - Bet365*\n{casa} vs {fora}\n\n{analise}")
+        enviar_telegram(f"🔥 *ANÁLISE*\n{casa} vs {fora}\n\n{analise}")
 
 if __name__ == "__main__":
     executar_analise()
