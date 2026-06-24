@@ -69,7 +69,7 @@ def processar_updates():
             user_id = msg["from"]["id"]
             msg_date = msg["date"]
 
-            # 1. VERIFICAÇÃO DE NOVOS MEMBROS (Roda conforme programado)
+            # 1. VERIFICAÇÃO DE NOVOS MEMBROS 
             if "new_chat_members" in msg and (agora_timestamp - msg_date < 32400):
                 for novo_membro in msg["new_chat_members"]:
                     if novo_membro["is_bot"]: continue
@@ -86,7 +86,7 @@ def processar_updates():
                     )
                     enviar_telegram(msg_boas_vindas, chat_id_origem)
 
-            # 2. VERIFICAÇÃO DE COMANDOS MANUAIS (Apenas para Administradores)
+            # 2. VERIFICAÇÃO DE COMANDOS MANUAIS
             if "text" in msg:
                 texto = msg["text"].lower().strip()
                 
@@ -132,8 +132,9 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
     REGRAS: > 65% de confiança. Justificativa curta (máx 15 palavras). Formato: [Mercado]: [Sugestão] (Confiança: X%) - [Justificativa].
     """
     try:
+        # AJUSTE CHAVE: Nome completo do modelo (gemini-1.5-flash-latest) para não dar 404
         response = client.models.generate_content(
-            model='gemini-1.5-flash',
+            model='gemini-1.5-flash-latest',
             contents=prompt
         )
         return response.text if response.text else "⚠️ IA não retornou análise."
