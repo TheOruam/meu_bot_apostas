@@ -51,7 +51,7 @@ def executar_analise():
     data_hoje = datetime.now().strftime('%Y-%m-%d')
     url_fixtures = "https://v3.football.api-sports.io/fixtures"
     headers_football = {'x-apisports-key': API_FOOTBALL_KEY}
-    params_fixtures = {'date': data_hoje, 'season': '2026'}
+    params_fixtures = {'date': data_hoje}
 
     try:
         resp_fixtures = requests.get(url_fixtures, headers=headers_football, params=params_fixtures)
