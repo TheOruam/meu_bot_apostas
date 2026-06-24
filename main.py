@@ -19,7 +19,11 @@ LIGAS_PRIORITARIAS = [1, 2, 3, 13, 71, 72, 73, 39, 140, 135, 78, 61, 848, 866]
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
     # Aqui está a mágica: Atualizado para o Gemini 2.5 Flash
-    model = genai.GenerativeModel('gemini-2.5-flash')
+    # No seu main.py, altere a inicialização do modelo para:
+model = genai.GenerativeModel(
+    model_name='gemini-2.5-flash',
+    tools=[{'google_search_retrieval': {}}] # Ativa o motor de busca em tempo real
+)
 
 # --- Funções Utilitárias ---
 def enviar_telegram(texto, chat_id=CHAT_ID):
@@ -126,19 +130,33 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
     casa = jogo_dados['teams']['home']['name']
     fora = jogo_dados['teams']['away']['name']
     
+    # Extração de dados da API (para passar como "fato" para a IA)
+    home_stats = jogo_dados.get('teams', {}).get('home', {})
+    away_stats = jogo_dados.get('teams', {}).get('away', {})
+    
     prompt = f"""
-    Você é o 'VAR do Lucro', um analista de apostas de elite. Missão: achar 'Value Bets' em {casa} vs {fora} ({liga_nome}).
-    SUGIRA 3 MERCADOS (se houver valor):
-    1. RESULTADO FINAL.
-    2. GOLS.
-    3. ESTATÍSTICAS.
-    REGRAS: > 65% de confiança. Justificativa curta (máx 15 palavras). Formato: [Mercado]: [Sugestão] (Confiança: X%) - [Justificativa].
+    Você é o 'VAR do Lucro', analista de apostas de elite.
+    
+    DADOS TÉCNICOS FORNECIDOS PELA API (USE ESTES FATOS PRIMEIRO):
+    - Casa: {casa}
+    - Visitante: {fora}
+    - Contexto: {liga_nome}
+    
+    INVESTIGAÇÃO NECESSÁRIA (USE A FERRAMENTA DE BUSCA):
+    - Pesquise sobre desfalques, notícias de última hora, prováveis escalações e motivação para esta partida específica.
+    
+    ANÁLISE DE SAÍDA (FORMATO OBRIGATÓRIO):
+    🎯 1. PLACAR MAIS PROVÁVEL: [Palpite]
+    💰 2. MERCADOS COM MAIS VALOR: [1-3 mercados com justificativa técnica baseada nos dados e nas notícias encontradas]
+    📊 3. GRAU DE CONFIANÇA: [Nota 0-10]
+    ⚠️ 4. PRINCIPAIS RISCOS DA ENTRADA: [Baseado em possíveis desfalques ou notícias negativas]
     """
     try:
+        # Ao usar o tool, a IA fará a busca automaticamente antes de responder
         response = model.generate_content(prompt)
         return response.text if response.text else "⚠️ IA não retornou análise."
     except Exception as e:
-        return f"⚠️ Erro na análise da IA: {str(e)}"
+        return f"⚠️ Erro na análise da IA (Grounding): {str(e)}"
 
 # --- Execução Principal de Análise ---
 def executar_analise():
@@ -191,7 +209,7 @@ def executar_analise():
         enviar_telegram(msg_final)
         
         # O intervalo de 6 segundos foi mantido para segurança
-        time.sleep(6) 
+        time.sleep(15) 
 
 # --- Resumo do Dia ---
 def enviar_resumo_do_dia():
