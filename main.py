@@ -7,7 +7,7 @@ from deep_translator import GoogleTranslator
 TELEGRAM_TOKEN = '8983808854:AAH36YnSLE2ACY_1s5wSDhxQgCUbs66VzlA'
 CHAT_ID = '747956770'
 API_FOOTBALL_KEY = '418766ef4ec5450f1cab64d32229ddee'
-GEMINI_API_KEY = 'SUA_CHAVE_GEMINI_AQUI' # Insira aqui
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 # Configuração Gemini
 genai.configure(api_key=GEMINI_API_KEY)
