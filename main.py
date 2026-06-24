@@ -1,7 +1,7 @@
 import os
 import requests
 import google.generativeai as genai
-from datetime import datetime, timedelta
+from datetime import datetime
 from deep_translator import GoogleTranslator
 
 # Configurações
@@ -9,14 +9,10 @@ TELEGRAM_TOKEN = '8983808854:AAH36YnSLE2ACY_1s5wSDhxQgCUbs66VzlA'
 CHAT_ID = '747956770'
 API_FOOTBALL_KEY = '418766ef4ec5450f1cab64d32229ddee'
 
-# Configuração da API do Gemini
+# Configuração Gemini
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 genai.configure(api_key=GEMINI_API_KEY)
-
-# Modelo atualizado conforme sua lista de permissões
 model = genai.GenerativeModel('gemini-2.0-flash')
-
-LIGAS_PRIORITARIAS = [1, 71, 72, 73, 39, 140, 135, 78, 61, 2] 
 
 def enviar_telegram(texto):
     requests.post(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage", 
@@ -61,22 +57,19 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
         return f"⚠️ Erro na análise: {str(e)}"
 
 def executar_analise():
-    agora = datetime.utcnow()
     data_hoje = datetime.now().strftime('%Y-%m-%d')
     
-    # Busca os jogos do dia
     resposta = requests.get("https://v3.football.api-sports.io/fixtures", 
                             headers={'x-apisports-key': API_FOOTBALL_KEY}, 
                             params={'date': data_hoje})
     
     jogos = resposta.json().get('response', [])
     
-    # PEGANDO O PRIMEIRO JOGO DO DIA DISPONÍVEL (Ignorando filtros para testar o prompt)
     if not jogos:
         enviar_telegram("Nenhum jogo encontrado na API para hoje.")
         return
         
-    jogo_teste = jogos[0] # Pega o primeiro jogo do dia da lista
+    jogo_teste = jogos[0] 
     
     liga = traduzir(jogo_teste['league']['name'])
     casa_nome = traduzir(jogo_teste['teams']['home']['name'])
@@ -86,3 +79,10 @@ def executar_analise():
     
     analise = analisar_com_ia_e_dados(jogo_teste, liga)
     enviar_telegram(f"🔍 *RELATÓRIO DE INTELIGÊNCIA*\n{casa_nome} vs {fora_nome}\n\n{analise}")
+
+if __name__ == "__main__":
+    try:
+        enviar_telegram("🤖 Robô de Teste Iniciando...")
+        executar_analise()
+    except Exception as e:
+        enviar_telegram(f"❌ Erro no código: {str(e)}")
