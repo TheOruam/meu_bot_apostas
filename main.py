@@ -8,25 +8,38 @@ import config
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 CHAT_ID = os.getenv('CHAT_ID')
 API_FOOTBALL_KEY = os.getenv('API_FOOTBALL_KEY')
-client = genai.Client(api_key=os.getenv('GEMINI_API_KEY'))
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+
+# Configura cliente Gemini apenas se a chave existir
+client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 def enviar_telegram(texto):
     if not TELEGRAM_TOKEN or not CHAT_ID:
-        print("Erro: Token ou Chat ID faltando!")
+        print("DEBUG: ERRO - Token ou Chat ID faltando nas variáveis de ambiente!")
         return
+    
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": texto, "parse_mode": "Markdown"}
+    
     try:
-        requests.post(url, json=payload, timeout=10)
+        response = requests.post(url, json=payload, timeout=10)
+        if response.status_code == 200:
+            print("DEBUG: Mensagem enviada para o Telegram com sucesso!")
+        else:
+            print(f"DEBUG: ERRO NO TELEGRAM. Status: {response.status_code}, Resposta: {response.text}")
     except Exception as e:
-        print(f"Erro ao enviar Telegram: {e}")
+        print(f"DEBUG: Erro ao conectar com Telegram: {e}")
 
 def executar_analise():
     print("DEBUG: Iniciando busca de jogos na API...")
     url = "https://api-football-v1.p.rapidapi.com/v3/fixtures"
-    # Busca jogos de hoje
     data_hoje = datetime.now().strftime("%Y-%m-%d")
-    headers = {"x-rapidapi-key": API_FOOTBALL_KEY}
+    
+    # Cabeçalhos obrigatórios para o RapidAPI
+    headers = {
+        "x-rapidapi-key": API_FOOTBALL_KEY,
+        "x-rapidapi-host": "api-football-v1.p.rapidapi.com"
+    }
     params = {"date": data_hoje}
     
     try:
@@ -36,30 +49,28 @@ def executar_analise():
         if response.status_code == 200:
             data = response.json()
             jogos = data.get('response', [])
-            print(f"DEBUG: Quantidade total de jogos retornados pela API: {len(jogos)}")
-            
-            # Aqui entraria a sua lógica de filtrar ligas (ex: usando config.LIGAS_ATIVAS)
-            if len(jogos) > 0:
-                print("DEBUG: Sucesso! Jogos encontrados.")
-                enviar_telegram(f"⚽ O sistema encontrou {len(jogos)} jogos hoje!")
-            else:
-                print("DEBUG: Nenhum jogo encontrado para hoje.")
+            print(f"DEBUG: Jogos encontrados hoje: {len(jogos)}")
+            enviar_telegram(f"✅ API funcionando! Encontrei {len(jogos)} jogos hoje.")
         else:
-            print(f"DEBUG: Erro na API. Resposta: {response.text}")
+            print(f"DEBUG: Erro na API. Resposta completa: {response.text}")
+            enviar_telegram(f"⚠️ Erro na API: {response.status_code}")
             
     except Exception as e:
         print(f"DEBUG: Ocorreu um erro na requisição: {e}")
 
 if __name__ == "__main__":
-    print("DEBUG: Iniciando o script...")
+    print("DEBUG: --- INICIANDO EXECUÇÃO ---")
     
-    # Validação de Horário
-    hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
-    print(f"DEBUG: Hora atual calculada: {hora_brt.hour}h")
+    # Teste de Telegram sempre que o bot inicia
+    enviar_telegram("🤖 O VAR do Lucro iniciou a verificação!")
+    
+    # Verificação de horário (considerando UTC-3)
+    hora_atual = datetime.now(timezone.utc) - timedelta(hours=3)
+    print(f"DEBUG: Hora atual no Brasil: {hora_atual.hour}h")
 
-    if 5 <= hora_brt.hour < 21:
-        print("DEBUG: Entrou no intervalo de horário (05h-21h). Executando análise...")
+    if 5 <= hora_atual.hour < 21:
+        print("DEBUG: Dentro do horário de análise.")
         executar_analise()
     else:
-        print("DEBUG: Fora do intervalo de análise. Bot em repouso.")
-        enviar_telegram("💤 O VAR do Lucro está em repouso (fora da janela de análise).")
+        print("DEBUG: Fora do horário (05h-21h). Bot em repouso.")
+        enviar_telegram("💤 O VAR do Lucro está em repouso.")
