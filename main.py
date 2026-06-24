@@ -59,6 +59,18 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
         return f"⚠️ Erro na análise: {str(e)}"
 
 def executar_analise():
+    def executar_analise():
+    # Mensagem de início divertida
+    frases_inicio = [
+        "🚀 Radar ligado! Buscando as melhores oportunidades de lucro hoje...",
+        "💰 Mestre das Odds na área! Analisando os campos para vocês...",
+        "⚽ Hora de caçar o Green! Varredura de mercados iniciada...",
+        "🔥 O Robô Trader está no comando! Vamos ver o que o dia reserva..."
+    ]
+    import random
+    enviar_telegram(random.choice(frases_inicio))
+    
+    # ... resto do seu código ...
     agora = datetime.utcnow()
     janela_limite = agora + timedelta(hours=8)
     data_hoje = datetime.now().strftime('%Y-%m-%d')
