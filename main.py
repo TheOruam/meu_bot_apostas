@@ -103,7 +103,7 @@ def processar_updates():
                 
                 if texto in ["/bomdia", "/bemvindo", "/start"] and verificar_se_eh_admin(chat_id_origem, user_id):
                     if texto in ["/bemvindo", "/start"]:
-                        enviar_telegram("👋 Fala, time! GOOOOOOL!\n\nSejam bem-vindos ao VAR do Lucro! 🟢\n\nAqui o nosso robô analisa lesões, escalações e o clima para mandar as melhores oportunidades de apostas!")
+                        enviar_telegram("👋 Fala, time! GOOOOOOL!\n\nSejam bem-vindos ao VAR do Lucro! 🟢\n\nAqui o nosso robô analisa lesões, escalações e o clima para mandar as melhores[...]")
                     elif texto == "/bomdia":
                         enviar_telegram("☀️ Bom dia, time de Campeões!\n\nO gramado já está cortado e o VAR do Lucro está mapeando as melhores oportunidades de hoje. Fiquem de olho!")
                     comando_executado = True
@@ -170,6 +170,8 @@ def buscar_jogos_do_dia():
         'timezone': 'America/Sao_Paulo'
     }
     
+    print(f"📡 Buscando jogos para data: {hora_brt.strftime('%Y-%m-%d')}")
+    
     try:
         resposta = requests.get(url_api, headers=headers, params=params, timeout=15)
         print(f"📡 Status da API: {resposta.status_code}")
@@ -183,7 +185,16 @@ def buscar_jogos_do_dia():
         print(f"📊 Resposta da API: {dados_api.get('results', 'N/A')} jogos | Erros: {dados_api.get('errors', {})}")
         
         jogos = dados_api.get('response', [])
-        print(f"🔍 Total de jogos encontrados no mundo hoje: {len(jogos)}")
+        print(f"🔍 Total de jogos encontrados: {len(jogos)}")
+        
+        # DEBUG: Mostra status dos jogos
+        if len(jogos) > 0:
+            for i, jogo in enumerate(jogos[:3]):  # Mostra os 3 primeiros
+                status = jogo['fixture']['status']['short']
+                liga_id = jogo['league']['id']
+                casa = jogo['teams']['home']['name']
+                fora = jogo['teams']['away']['name']
+                print(f"  [{i+1}] {casa} vs {fora} | Status: {status} | Liga: {liga_id}")
         
         if len(jogos) == 0:
             print("⚠️ Nenhum jogo encontrado para a data")
@@ -207,22 +218,33 @@ def filtrar_jogos_vip(jogos):
     agora_timestamp = time.time()
     jogos_vip = []
     
+    print(f"\n🔎 Filtrando jogos VIP (ligas: {LIGAS_PRIORITARIAS})...")
+    
     for jogo in jogos:
         try:
             id_liga = jogo['league']['id']
             jogo_timestamp = jogo['fixture']['timestamp']
             status = jogo['fixture']['status']['short']
+            casa = jogo['teams']['home']['name']
+            fora = jogo['teams']['away']['name']
+            
+            # Debug: mostra cada jogo analisado
+            eh_vip = id_liga in LIGAS_PRIORITARIAS
+            nao_comecou = status == 'NS'
+            no_futuro = jogo_timestamp > agora_timestamp
+            
+            print(f"  • {casa} vs {fora}")
+            print(f"    Liga: {id_liga} (VIP: {eh_vip}) | Status: {status} (NS: {nao_comecou}) | Futuro: {no_futuro}")
             
             # Apenas jogos VIP que ainda não começaram
-            if id_liga in LIGAS_PRIORITARIAS and status == 'NS' and jogo_timestamp > agora_timestamp:
+            if eh_vip and nao_comecou and no_futuro:
                 jogos_vip.append(jogo)
-                casa = jogo['teams']['home']['name']
-                fora = jogo['teams']['away']['name']
-                print(f"✅ Jogo VIP encontrado: {casa} vs {fora} às {datetime.fromtimestamp(jogo_timestamp).strftime('%H:%M')}")
+                print(f"    ✅ ADICIONADO AO VIP")
         except Exception as e:
             print(f"⚠️ Erro ao processar jogo: {e}")
             continue
     
+    print(f"✅ Total de jogos VIP filtrados: {len(jogos_vip)}\n")
     return jogos_vip
 
 # --- Agendar análises para 1 hora antes de cada jogo ---
