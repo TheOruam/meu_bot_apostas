@@ -160,6 +160,7 @@ def executar_analise():
     print(f"🔍 Buscando jogos do dia: {params['date']}")
     print(f"⚽ Total de jogos encontrados no mundo hoje: {len(jogos)}")
     
+    # --- Substitua este trecho dentro do seu FOR loop ---
     jogos_validos = []
     for j in jogos:
         try:
@@ -167,9 +168,12 @@ def executar_analise():
             id_liga = j['league']['id']
             status = j['fixture']['status']['short']
             
+            # Tolerância: Permite jogos que começaram há até 30 minutos (1800 segundos)
+            # ou que vão começar nas próximas 6 horas.
             if id_liga in LIGAS_PRIORITARIAS:
-                if status == 'NS' and agora_timestamp <= jogo_timestamp <= limite_timestamp:
+                if status == 'NS' and (agora_timestamp - 1800) <= jogo_timestamp <= limite_timestamp:
                     jogos_validos.append(j)
+                    print(f"✅ Jogo APROVADO: {j['teams']['home']['name']} vs {j['teams']['away']['name']}")
         except: continue
 
     if not jogos_validos:
