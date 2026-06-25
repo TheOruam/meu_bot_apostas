@@ -1,1 +1,3 @@
 requests
+google-generativeai
+deep-translator
