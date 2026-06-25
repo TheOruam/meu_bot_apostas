@@ -1,6 +1,7 @@
 import os
 import requests
 import time
+import json
 from datetime import datetime, timedelta, timezone
 from deep_translator import GoogleTranslator
 import google.generativeai as genai 
@@ -13,6 +14,9 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 # --- Ligas VIPs ---
 LIGAS_PRIORITARIAS = [1, 2, 3, 13, 71, 72, 73, 39, 140, 135, 78, 61, 848, 866]
+
+# --- Arquivo de armazenamento de agendamentos ---
+ARQUIVO_AGENDAMENTOS = "agendamentos_jogos.json"
 
 # --- Inicialização da IA ---
 if GEMINI_API_KEY:
@@ -82,10 +86,10 @@ def processar_updates():
                     if novo_membro.get("is_bot"): continue
                     nome_membro = novo_membro.get("first_name", "Craque")
                     msg_boas_vindas = (
-                        f"👋 <b>Fala, {nome_membro}! GOOOOOOL!</b>\n\n"
-                        f"Seja bem-vindo ao <b>VAR do Lucro</b>! 🟢\n"
+                        f"👋 Fala, {nome_membro}! GOOOOOOL!\n\n"
+                        f"Seja bem-vindo ao VAR do Lucro! 🟢\n"
                         f"Você acaba de entrar para o time que não vive de palpite, vive de análise técnica de verdade.\n\n"
-                        f"🚀 <b>Regras de jogo:</b>\n"
+                        f"🚀 Regras de jogo:\n"
                         f"1. Deixe as notificações ativadas para não perder os lances de ouro.\n"
                         f"2. Siga a gestão de banca.\n\n"
                         f"💰 Vamos pra cima da banca!"
@@ -98,9 +102,9 @@ def processar_updates():
                 
                 if texto in ["/bomdia", "/bemvindo", "/start"] and verificar_se_eh_admin(chat_id_origem, user_id):
                     if texto in ["/bemvindo", "/start"]:
-                        enviar_telegram("👋 <b>Fala, time! GOOOOOOL!</b>\n\nSejam bem-vindos ao <b>VAR do Lucro</b>! 🟢\n\nAqui o nosso robô analisa lesões, escalações e o clima para mandar a bola direto no gol aberto.\n\n🚀 Fiquem atentos às notificações!", chat_id_origem)
+                        enviar_telegram("👋 Fala, time! GOOOOOOL!\n\nSejam bem-vindos ao VAR do Lucro! 🟢\n\nAqui o nosso robô analisa lesões, escalações e o clima para mandar as melhores oportunidades de apostas!")
                     elif texto == "/bomdia":
-                        enviar_telegram("☀️ <b>Bom dia, time de Campeões!</b>\n\nO gramado já está cortado e o VAR do Lucro está mapeando as melhores oportunidades de hoje. Fiquem de olho que vem Green por aí! 🚀💸", chat_id_origem)
+                        enviar_telegram("☀️ Bom dia, time de Campeões!\n\nO gramado já está cortado e o VAR do Lucro está mapeando as melhores oportunidades de hoje. Fiquem de olho!")
                     comando_executado = True
     except: pass
     return comando_executado
@@ -134,10 +138,27 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
     except Exception as e:
         return f"⚠️ Erro na análise da IA: {str(e)}"
 
-# --- Execução Principal de Análise ---
-def executar_analise():
+# --- Carregar agendamentos do arquivo ---
+def carregar_agendamentos():
+    try:
+        if os.path.exists(ARQUIVO_AGENDAMENTOS):
+            with open(ARQUIVO_AGENDAMENTOS, 'r') as f:
+                return json.load(f)
+    except:
+        pass
+    return {}
+
+# --- Salvar agendamentos no arquivo ---
+def salvar_agendamentos(agendamentos):
+    try:
+        with open(ARQUIVO_AGENDAMENTOS, 'w') as f:
+            json.dump(agendamentos, f, indent=2)
+    except Exception as e:
+        print(f"❌ Erro ao salvar agendamentos: {e}")
+
+# --- Buscar todos os jogos do dia ---
+def buscar_jogos_do_dia():
     hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
-    janela_horas = 6 
     
     url_api = "https://v3.football.api-sports.io/fixtures"
     headers = {'x-apisports-key': API_FOOTBALL_KEY}
@@ -150,105 +171,182 @@ def executar_analise():
     try:
         resposta = requests.get(url_api, headers=headers, params=params, timeout=15)
         jogos = resposta.json().get('response', [])
+        print(f"🔍 Total de jogos encontrados no mundo hoje: {len(jogos)}")
+        return jogos
     except Exception as e:
         print(f"❌ Erro ao conectar na API: {e}")
-        return
+        return []
 
+# --- Filtrar jogos VIP que ainda não começaram ---
+def filtrar_jogos_vip(jogos):
     agora_timestamp = time.time()
-    limite_timestamp = agora_timestamp + (janela_horas * 3600)
+    jogos_vip = []
     
-    print(f"🔍 Buscando jogos do dia: {params['date']}")
-    print(f"⚽ Total de jogos encontrados no mundo hoje: {len(jogos)}")
-    
-    # --- Substitua este trecho dentro do seu FOR loop ---
-    jogos_validos = []
-    for j in jogos:
+    for jogo in jogos:
         try:
-            jogo_timestamp = j['fixture']['timestamp']
-            id_liga = j['league']['id']
-            status = j['fixture']['status']['short']
+            id_liga = jogo['league']['id']
+            jogo_timestamp = jogo['fixture']['timestamp']
+            status = jogo['fixture']['status']['short']
             
-            # Tolerância: Permite jogos que começaram há até 30 minutos (1800 segundos)
-            # ou que vão começar nas próximas 6 horas.
-            if id_liga in LIGAS_PRIORITARIAS:
-                if status == 'NS' and (agora_timestamp - 1800) <= jogo_timestamp <= limite_timestamp:
-                    jogos_validos.append(j)
-                    print(f"✅ Jogo APROVADO: {j['teams']['home']['name']} vs {j['teams']['away']['name']}")
-        except: continue
+            # Apenas jogos VIP que ainda não começaram
+            if id_liga in LIGAS_PRIORITARIAS and status == 'NS' and jogo_timestamp > agora_timestamp:
+                jogos_vip.append(jogo)
+                casa = jogo['teams']['home']['name']
+                fora = jogo['teams']['away']['name']
+                print(f"✅ Jogo VIP encontrado: {casa} vs {fora} às {datetime.fromtimestamp(jogo_timestamp).strftime('%H:%M')}")
+        except:
+            continue
+    
+    return jogos_vip
 
-    if not jogos_validos:
-        enviar_telegram("⚠️ Nenhuma oportunidade VIP encontrada nas próximas horas. O VAR segue de olho...")
-        if hora_brt.hour >= 21:
-            msg_boa_noite = (
-                "🌙 <b>FIM DE RODADA! O VAR ENCERRA OS TRABALHOS!</b> 🏁\n\n"
-                "Por hoje é só, amigos! O dever foi cumprido e a rodada da noite fechou sem novos lances. "
-                "Hora de desligar os servidores, guardar os greens no bolso e descansar a mente.\n\n"
-                "Grande abraço do VAR e boa noite, campeões! 🛌⚽💰"
-            )
-            enviar_telegram(msg_boa_noite)
+# --- Agendar análises para 1 hora antes de cada jogo ---
+def agendar_analises():
+    print("\n📅 INICIANDO AGENDAMENTO DE ANÁLISES...")
+    
+    jogos = buscar_jogos_do_dia()
+    
+    if not jogos:
+        enviar_telegram("⚠️ API sem resposta. Verifique a conexão!")
         return
-
-    enviar_telegram("⚽ O VAR do Lucro entrou em campo! Analisando os lances de hoje...")
-
-    for jogo in jogos_validos:
-        liga = traduzir(jogo['league']['name'])
-        casa = traduzir(jogo['teams']['home']['name'])
-        fora = traduzir(jogo['teams']['away']['name'])
-        
-        print(f"🧠 A Inteligência Artificial está analisando: {casa} vs {fora}...")
-        analise = analisar_com_ia_e_dados(jogo, liga)
-        print(f"✅ Análise concluída! Tentando enviar para o Telegram...")
-        
-        msg_final = f"🔍 <b>RELATÓRIO DE INTELIGÊNCIA</b>\n⚽ <b>{casa}</b> vs <b>{fora}</b>\n🏆 {liga}\n\n{analise}\n\n👉 <b>Aposta sugerida? Confira na sua Casa favorita!</b>"
-        enviar_telegram(msg_final)
-        time.sleep(15) 
-
-    if hora_brt.hour >= 21:
-        msg_boa_noite = (
-            "🌙 <b>FIM DE RODADA! O VAR ENCERRA OS TRABALHOS!</b> 🏁\n\n"
-            "Por hoje é só, amigos! O robô varreu os campos, a IA trabalhou firme e o green foi decretado. "
-            "Agora é hora de desligar os motores, descansar a mente e se preparar para os lucros de amanhã.\n\n"
-            "Grande abraço do VAR e uma excelente noite de sono para todos! 🛌⚽💰"
-        )
-        enviar_telegram(msg_boa_noite)
-
-# --- Resumo do Dia ---
-def enviar_resumo_do_dia():
-    hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
-    url_api = "https://v3.football.api-sports.io/fixtures"
-    headers = {'x-apisports-key': API_FOOTBALL_KEY}
-    params = {
-        'date': hora_brt.strftime('%Y-%m-%d'),
-        'timezone': 'America/Sao_Paulo'
-    }
     
-    try:
-        resposta = requests.get(url_api, headers=headers, params=params, timeout=15)
-        jogos = resposta.json().get('response', [])
-    except: return
-
-    jogos_finalizados = [j for j in jogos if j['league']['id'] in LIGAS_PRIORITARIAS and j['fixture']['status']['short'] == 'FT']
-
-    if not jogos_finalizados: return
-
-    msg = "🏁 <b>FECHAMENTO DO VAR: BALANÇO DO DIA</b>\n\n"
-    for jogo in jogos_finalizados:
-        casa = traduzir(jogo['teams']['home']['name'])
-        fora = traduzir(jogo['teams']['away']['name'])
-        msg += f"⚽ {casa} <b>{jogo['goals']['home']} x {jogo['goals']['away']}</b> {fora}\n"
+    jogos_vip = filtrar_jogos_vip(jogos)
     
-    msg += "\n<b>O VAR encerra os trabalhos. Amanhã tem mais!</b> 🚀"
-    enviar_telegram(msg)
+    if not jogos_vip:
+        enviar_telegram("⚠️ Nenhum jogo VIP encontrado para hoje. O VAR volta amanhã!")
+        print("❌ Nenhum jogo VIP encontrado")
+        return
+    
+    agendamentos = carregar_agendamentos()
+    agora = datetime.now(timezone.utc) - timedelta(hours=3)
+    
+    for jogo in jogos_vip:
+        try:
+            fixture_id = jogo['fixture']['id']
+            jogo_timestamp = jogo['fixture']['timestamp']
+            tempo_jogo = datetime.fromtimestamp(jogo_timestamp)
+            
+            # Calcula 1 hora antes
+            tempo_analise = tempo_jogo - timedelta(hours=1)
+            timestamp_analise = tempo_analise.timestamp()
+            
+            # Apenas agenda se for no futuro
+            if timestamp_analise > agora.timestamp():
+                chave = f"jogo_{fixture_id}"
+                
+                if chave not in agendamentos:
+                    agendamentos[chave] = {
+                        'fixture_id': fixture_id,
+                        'timestamp_jogo': jogo_timestamp,
+                        'timestamp_analise': timestamp_analise,
+                        'tempo_jogo': tempo_jogo.strftime('%H:%M'),
+                        'tempo_analise': tempo_analise.strftime('%H:%M'),
+                        'casa': jogo['teams']['home']['name'],
+                        'fora': jogo['teams']['away']['name'],
+                        'liga': jogo['league']['name'],
+                        'analisado': False
+                    }
+                    
+                    print(f"📌 Agendado: {jogo['teams']['home']['name']} vs {jogo['teams']['away']['name']}")
+                    print(f"   Análise em: {tempo_analise.strftime('%H:%M')} | Jogo em: {tempo_jogo.strftime('%H:%M')}")
+        except Exception as e:
+            print(f"⚠️ Erro ao agendar jogo: {e}")
+            continue
+    
+    salvar_agendamentos(agendamentos)
+    total = len([v for v in agendamentos.values() if not v['analisado']])
+    print(f"✅ Total de análises agendadas: {total}")
+    enviar_telegram(f"✅ VAR pronto! {total} jogos VIP agendados para análise hoje.")
+
+# --- Verificar e executar análises agendadas ---
+def executar_analises_agendadas():
+    print("\n🔍 VERIFICANDO ANÁLISES AGENDADAS...")
+    
+    agendamentos = carregar_agendamentos()
+    agora = time.time()
+    tolerancia = 60  # 1 minuto de tolerância
+    
+    for chave, agendamento in agendamentos.items():
+        if agendamento['analisado']:
+            continue
+        
+        timestamp_analise = agendamento['timestamp_analise']
+        
+        # Se chegou a hora (com tolerância)
+        if agora >= timestamp_analise and agora <= (timestamp_analise + tolerancia):
+            print(f"⏰ Hora de analisar: {agendamento['casa']} vs {agendamento['fora']}")
+            
+            # Buscar dados atualizados do jogo
+            try:
+                fixture_id = agendamento['fixture_id']
+                url_api = f"https://v3.football.api-sports.io/fixtures"
+                headers = {'x-apisports-key': API_FOOTBALL_KEY}
+                params = {'id': fixture_id}
+                
+                resposta = requests.get(url_api, headers=headers, params=params, timeout=10)
+                jogos = resposta.json().get('response', [])
+                
+                if jogos:
+                    jogo = jogos[0]
+                    liga = traduzir(jogo['league']['name'])
+                    casa = traduzir(jogo['teams']['home']['name'])
+                    fora = traduzir(jogo['teams']['away']['name'])
+                    
+                    print(f"🧠 IA analisando: {casa} vs {fora}...")
+                    analise = analisar_com_ia_e_dados(jogo, liga)
+                    
+                    msg_final = f"🔍 LANCE DE OURO DETECTADO!\n\n⚽ {casa} vs {fora}\n🏆 {liga}\n⏰ Jogo em 1 hora\n\n{analise}\n\n👉 Confira na sua Casa de apostas!"
+                    enviar_telegram(msg_final)
+                    
+                    # Marca como analisado
+                    agendamentos[chave]['analisado'] = True
+                    salvar_agendamentos(agendamentos)
+                    print(f"✅ Análise enviada para {casa} vs {fora}")
+                    
+            except Exception as e:
+                print(f"❌ Erro ao analisar jogo: {e}")
+        
+        # Remove jogos muito antigos (mais de 24h)
+        if agora > (timestamp_analise + 86400):
+            del agendamentos[chave]
+            salvar_agendamentos(agendamentos)
+
+# --- Limpeza diária de agendamentos ---
+def limpar_agendamentos_antigos():
+    agendamentos = carregar_agendamentos()
+    agora = time.time()
+    
+    chaves_remover = []
+    for chave, agendamento in agendamentos.items():
+        # Remove se o jogo já passou há mais de 4 horas
+        if agora > (agendamento['timestamp_jogo'] + 14400):
+            chaves_remover.append(chave)
+    
+    for chave in chaves_remover:
+        del agendamentos[chave]
+    
+    if chaves_remover:
+        salvar_agendamentos(agendamentos)
+        print(f"🧹 Limpeza: {len(chaves_remover)} agendamentos antigos removidos")
 
 # --- Fluxo de Entrada Principal ---
 if __name__ == "__main__":
-    # 1. Primeiro ele olha se tem membros novos ou comandos (sem bloquear o resto)
-    processar_updates()
-    
-    # 2. Depois ele SEMPRE roda a varredura de jogos do horário
     hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
     
-    if hora_brt.hour >= 23 or hora_brt.hour < 1:
-        enviar_resumo_do_dia()
-    elif 5 <= hora_brt.hour <= 22:
-        executar_analise()
+    print(f"\n{'='*50}")
+    print(f"🤖 VAR DO LUCRO - {hora_brt.strftime('%d/%m/%Y %H:%M:%S')}")
+    print(f"{'='*50}")
+    
+    # 1. Processa comandos do Telegram
+    processar_updates()
+    
+    # 2. Se for 00:00, agenda todos os jogos do dia
+    if hora_brt.hour == 0 or True:  # Sempre agenda (remova "or True" para apenas 00:00)
+        agendar_analises()
+    
+    # 3. Verifica e executa análises agendadas
+    executar_analises_agendadas()
+    
+    # 4. Limpa agendamentos antigos
+    limpar_agendamentos_antigos()
+    
+    print(f"✅ Ciclo completo. Próxima execução em 5 minutos.\n")
