@@ -18,10 +18,10 @@ LIGAS_PRIORITARIAS = [1, 2, 3, 13, 71, 72, 73, 39, 140, 135, 78, 61, 848, 866]
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
-# O AJUSTE MÁGICO: O nome correto da ferramenta exigido pelo Google
+# O AJUSTE MÁGICO: Nome correto e no formato de dicionário (chaves e colchetes)
 model = genai.GenerativeModel(
     model_name='gemini-2.5-flash',
-    tools='google_search' 
+    tools=[{'google_search': {}}] 
 )
 
 # --- Funções Utilitárias ---
