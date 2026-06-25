@@ -27,9 +27,16 @@ def enviar_telegram(texto, chat_id=CHAT_ID):
     if not TELEGRAM_TOKEN or not chat_id: return
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {"chat_id": chat_id, "text": texto, "parse_mode": "Markdown"}
+    
     try:
-        requests.post(url, json=payload, timeout=10)
-    except: pass
+        r = requests.post(url, json=payload, timeout=10)
+        # Se o Telegram rejeitar a formatação da IA, ele tenta mandar o texto sem formatação
+        if r.status_code != 200:
+            print(f"⚠️ Telegram rejeitou a formatação. Reenviando texto limpo... Erro: {r.text}")
+            payload["parse_mode"] = None
+            requests.post(url, json=payload, timeout=10)
+    except Exception as e:
+        print(f"❌ Erro de conexão com o Telegram: {e}")
 
 def traduzir(texto):
     if not texto: return ""
@@ -135,11 +142,8 @@ def executar_analise():
     }
     
     try:
-        resposta_bruta = requests.get(url_api, headers=headers, params=params, timeout=15).json()
-        # === A LINHA QUE VAI REVELAR O BLOQUEIO ===
-        print(f"🛑 RESPOSTA COMPLETA DA API: {resposta_bruta}") 
-        
-        jogos = resposta_bruta.get('response', [])
+        resposta = requests.get(url_api, headers=headers, params=params, timeout=15)
+        jogos = resposta.json().get('response', [])
     except Exception as e:
         print(f"❌ Erro ao conectar na API: {e}")
         return
@@ -147,9 +151,7 @@ def executar_analise():
     agora_timestamp = time.time()
     limite_timestamp = agora_timestamp + (janela_horas * 3600)
     
-    # === MODO DEBUG: IMPRIMINDO NO LOG DO GITHUB ===
     print(f"🔍 Buscando jogos do dia: {params['date']}")
-    print(f"⏱️ Timestamp Agora: {agora_timestamp} | Limite (Daqui {janela_horas}h): {limite_timestamp}")
     print(f"⚽ Total de jogos encontrados no mundo hoje: {len(jogos)}")
     
     jogos_validos = []
@@ -159,26 +161,10 @@ def executar_analise():
             id_liga = j['league']['id']
             status = j['fixture']['status']['short']
             
-            # Se for uma liga nossa, ele imprime na tela do GitHub o que está acontecendo
             if id_liga in LIGAS_PRIORITARIAS:
-                casa = j['teams']['home']['name']
-                fora = j['teams']['away']['name']
-                print(f"👉 ACHOU VIP na API: {casa} vs {fora} | Liga: {id_liga} | Status: {status} | Timestamp do Jogo: {jogo_timestamp}")
-                
-                # Se o status for NS e estiver na janela de tempo, ele aprova
                 if status == 'NS' and agora_timestamp <= jogo_timestamp <= limite_timestamp:
-                    print("✅ Jogo APROVADO pelo filtro de tempo e status!")
                     jogos_validos.append(j)
-                else:
-                    if status != 'NS':
-                        print("❌ REPROVADO: O jogo não está com status 'NS' (Not Started).")
-                    elif jogo_timestamp < agora_timestamp:
-                        print("❌ REPROVADO: O jogo já passou do horário atual (Timestamp antigo).")
-                    elif jogo_timestamp > limite_timestamp:
-                        print("❌ REPROVADO: O jogo vai demorar muito para começar (Fora da janela).")
         except: continue
-
-    # =================================================
 
     if not jogos_validos:
         enviar_telegram("⚠️ Nenhuma oportunidade VIP encontrada nas próximas horas. O VAR segue de olho...")
@@ -199,7 +185,10 @@ def executar_analise():
         casa = traduzir(jogo['teams']['home']['name'])
         fora = traduzir(jogo['teams']['away']['name'])
         
+        print(f"🧠 A Inteligência Artificial está analisando: {casa} vs {fora}...")
         analise = analisar_com_ia_e_dados(jogo, liga)
+        print(f"✅ Análise concluída! Tentando enviar para o Telegram...")
+        
         msg_final = f"🔍 *RELATÓRIO DE INTELIGÊNCIA*\n⚽ *{casa}* vs *{fora}*\n🏆 {liga}\n\n{analise}\n\n👉 *Aposta sugerida? Confira na sua Casa favorita!*"
         enviar_telegram(msg_final)
         time.sleep(15) 
@@ -212,6 +201,7 @@ def executar_analise():
             "Grande abraço do VAR e uma excelente noite de sono para todos! 🛌⚽💰"
         )
         enviar_telegram(msg_boa_noite)
+
 # --- Resumo do Dia ---
 def enviar_resumo_do_dia():
     hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
