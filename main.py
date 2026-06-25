@@ -170,15 +170,38 @@ def buscar_jogos_do_dia():
     
     try:
         resposta = requests.get(url_api, headers=headers, params=params, timeout=15)
-        jogos = resposta.json().get('response', [])
+        print(f"📡 Status da API: {resposta.status_code}")
+        
+        if resposta.status_code != 200:
+            print(f"❌ API retornou erro: {resposta.status_code}")
+            print(f"Resposta: {resposta.text}")
+            return None
+        
+        dados_api = resposta.json()
+        print(f"📊 Resposta da API: {dados_api.get('results', 'N/A')} jogos | Erros: {dados_api.get('errors', {})}")
+        
+        jogos = dados_api.get('response', [])
         print(f"🔍 Total de jogos encontrados no mundo hoje: {len(jogos)}")
+        
+        if len(jogos) == 0:
+            print("⚠️ Nenhum jogo encontrado para a data")
+        
         return jogos
+    except requests.exceptions.Timeout:
+        print("❌ Timeout na conexão com a API")
+        return None
+    except requests.exceptions.ConnectionError as e:
+        print(f"❌ Erro de conexão: {e}")
+        return None
     except Exception as e:
         print(f"❌ Erro ao conectar na API: {e}")
-        return []
+        return None
 
 # --- Filtrar jogos VIP que ainda não começaram ---
 def filtrar_jogos_vip(jogos):
+    if not jogos:
+        return []
+    
     agora_timestamp = time.time()
     jogos_vip = []
     
@@ -194,7 +217,8 @@ def filtrar_jogos_vip(jogos):
                 casa = jogo['teams']['home']['name']
                 fora = jogo['teams']['away']['name']
                 print(f"✅ Jogo VIP encontrado: {casa} vs {fora} às {datetime.fromtimestamp(jogo_timestamp).strftime('%H:%M')}")
-        except:
+        except Exception as e:
+            print(f"⚠️ Erro ao processar jogo: {e}")
             continue
     
     return jogos_vip
@@ -205,15 +229,21 @@ def agendar_analises():
     
     jogos = buscar_jogos_do_dia()
     
-    if not jogos:
-        enviar_telegram("⚠️ API sem resposta. Verifique a conexão!")
+    if jogos is None:
+        enviar_telegram("❌ Erro na API de futebol! Não consegui buscar os jogos. Tente novamente mais tarde.")
+        print("❌ Erro crítico na API")
+        return
+    
+    if len(jogos) == 0:
+        enviar_telegram("⚠️ Nenhum jogo encontrado para hoje em toda a API.")
+        print("❌ Nenhum jogo em toda a API")
         return
     
     jogos_vip = filtrar_jogos_vip(jogos)
     
     if not jogos_vip:
-        enviar_telegram("⚠️ Nenhum jogo VIP encontrado para hoje. O VAR volta amanhã!")
-        print("❌ Nenhum jogo VIP encontrado")
+        enviar_telegram("⚠️ Nenhum jogo das ligas VIP encontrado para hoje. O VAR volta amanhã!")
+        print("❌ Nenhum jogo VIP encontrado (mas API funcionando)")
         return
     
     agendamentos = carregar_agendamentos()
@@ -265,7 +295,7 @@ def executar_analises_agendadas():
     agora = time.time()
     tolerancia = 60  # 1 minuto de tolerância
     
-    for chave, agendamento in agendamentos.items():
+    for chave, agendamento in list(agendamentos.items()):
         if agendamento['analisado']:
             continue
         
