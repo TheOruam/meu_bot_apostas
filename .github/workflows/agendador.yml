@@ -2,12 +2,16 @@ name: Bot VAR do Lucro
 
 on:
   schedule:
-    # Rodada 1: 06:00 Horário de Brasília (BRT)
+    # Rodada 1: 06:00 BRT -> 09:00 UTC
     - cron: '0 9 * * *'
-    # Rodada 2: 13:00 Horário de Brasília (BRT)
-    - cron: '0 16 * * *'
-    # Rodada 3: 23:00 Horário de Brasília (BRT)
-    - cron: '0 2 * * *'
+    # Rodada 2: 10:00 BRT -> 13:00 UTC
+    - cron: '0 13 * * *'
+    # Rodada 3: 14:00 BRT -> 17:00 UTC
+    - cron: '0 17 * * *'
+    # Rodada 4: 18:00 BRT -> 21:00 UTC
+    - cron: '0 21 * * *'
+    # Rodada 5: 22:00 BRT -> 01:00 UTC (Dia seguinte)
+    - cron: '0 1 * * *'
   # Permite rodar manualmente para testes
   workflow_dispatch:
 
