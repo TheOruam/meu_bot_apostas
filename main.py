@@ -13,6 +13,7 @@ API_FOOTBALL_KEY = os.getenv('API_FOOTBALL_KEY')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 # --- Ligas VIPs ---
+# 1 = Copa do Mundo 2026
 LIGAS_PRIORITARIAS = [1, 2, 3, 13, 71, 72, 73, 39, 140, 135, 78, 61, 848, 866]
 
 # --- Arquivo de armazenamento de agendamentos ---
@@ -165,6 +166,7 @@ def buscar_jogos_do_dia():
     
     params = {
         'date': hora_brt.strftime('%Y-%m-%d'),
+        'season': 2026,
         'timezone': 'America/Sao_Paulo'
     }
     
