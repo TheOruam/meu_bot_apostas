@@ -26,14 +26,20 @@ model = genai.GenerativeModel(
 def enviar_telegram(texto, chat_id=CHAT_ID):
     if not TELEGRAM_TOKEN or not chat_id: return
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {"chat_id": chat_id, "text": texto, "parse_mode": "Markdown"}
+    
+    # Remove asteriscos e sublinhados que quebram o Telegram
+    texto_seguro = texto.replace('*', '').replace('_', '')
+    
+    # Tenta enviar usando HTML (Mais seguro que Markdown)
+    payload = {"chat_id": chat_id, "text": texto_seguro, "parse_mode": "HTML"}
     
     try:
         r = requests.post(url, json=payload, timeout=10)
-        # Se o Telegram rejeitar a formatação da IA, ele tenta mandar o texto sem formatação
         if r.status_code != 200:
-            print(f"⚠️ Telegram rejeitou a formatação. Reenviando texto limpo... Erro: {r.text}")
-            payload["parse_mode"] = None
+            print(f"⚠️ Telegram rejeitou o HTML. Reenviando texto puro... Erro: {r.text}")
+            # Se falhar, tira o parse_mode e remove as tags HTML manualmente
+            payload.pop("parse_mode", None)
+            payload["text"] = texto_seguro.replace('<b>', '').replace('</b>', '').replace('<i>', '').replace('</i>', '')
             requests.post(url, json=payload, timeout=10)
     except Exception as e:
         print(f"❌ Erro de conexão com o Telegram: {e}")
@@ -77,10 +83,10 @@ def processar_updates():
                     if novo_membro.get("is_bot"): continue
                     nome_membro = novo_membro.get("first_name", "Craque")
                     msg_boas_vindas = (
-                        f"👋 **Fala, {nome_membro}! GOOOOOOL!**\n\n"
-                        f"Seja bem-vindo ao **VAR do Lucro**! 🟢\n"
+                        f"👋 <b>Fala, {nome_membro}! GOOOOOOL!</b>\n\n"
+                        f"Seja bem-vindo ao <b>VAR do Lucro</b>! 🟢\n"
                         f"Você acaba de entrar para o time que não vive de palpite, vive de análise técnica de verdade.\n\n"
-                        f"🚀 **Regras de jogo:**\n"
+                        f"🚀 <b>Regras de jogo:</b>\n"
                         f"1. Deixe as notificações ativadas para não perder os lances de ouro.\n"
                         f"2. Siga a gestão de banca.\n\n"
                         f"💰 Vamos pra cima da banca!"
@@ -93,9 +99,9 @@ def processar_updates():
                 
                 if texto in ["/bomdia", "/bemvindo", "/start"] and verificar_se_eh_admin(chat_id_origem, user_id):
                     if texto in ["/bemvindo", "/start"]:
-                        enviar_telegram("👋 **Fala, time! GOOOOOOL!**\n\nSejam bem-vindos ao **VAR do Lucro**! 🟢\n\nAqui o nosso robô analisa lesões, escalações e o clima para mandar a bola direto no gol aberto.\n\n🚀 Fiquem atentos às notificações!", chat_id_origem)
+                        enviar_telegram("👋 <b>Fala, time! GOOOOOOL!</b>\n\nSejam bem-vindos ao <b>VAR do Lucro</b>! 🟢\n\nAqui o nosso robô analisa lesões, escalações e o clima para mandar a bola direto no gol aberto.\n\n🚀 Fiquem atentos às notificações!", chat_id_origem)
                     elif texto == "/bomdia":
-                        enviar_telegram("☀️ **Bom dia, time de Campeões!**\n\nO gramado já está cortado e o VAR do Lucro está mapeando as melhores oportunidades de hoje. Fiquem de olho que vem Green por aí! 🚀💸", chat_id_origem)
+                        enviar_telegram("☀️ <b>Bom dia, time de Campeões!</b>\n\nO gramado já está cortado e o VAR do Lucro está mapeando as melhores oportunidades de hoje. Fiquem de olho que vem Green por aí! 🚀💸", chat_id_origem)
                     comando_executado = True
     except: pass
     return comando_executado
@@ -116,11 +122,13 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
     INVESTIGAÇÃO NECESSÁRIA (USE A FERRAMENTA DE BUSCA):
     - Pesquise sobre desfalques, notícias de última hora, prováveis escalações e motivação para esta partida específica.
     
+    REGRA DE FORMATAÇÃO: NÃO USE asteriscos, sublinhados ou negrito no texto. Escreva em formato de texto limpo.
+    
     ANÁLISE DE SAÍDA (FORMATO OBRIGATÓRIO):
     🎯 1. PLACAR MAIS PROVÁVEL: [Palpite]
-    💰 2. MERCADOS COM MAIS VALOR: [1-3 mercados com justificativa técnica baseada nos dados e nas notícias encontradas]
+    💰 2. MERCADOS COM MAIS VALOR: [1-3 mercados com justificativa técnica]
     📊 3. GRAU DE CONFIANÇA: [Nota 0-10]
-    ⚠️ 4. PRINCIPAIS RISCOS DA ENTRADA: [Baseado em possíveis desfalques ou notícias negativas]
+    ⚠️ 4. PRINCIPAIS RISCOS DA ENTRADA: [Riscos]
     """
     try:
         response = model.generate_content(prompt)
@@ -170,7 +178,7 @@ def executar_analise():
         enviar_telegram("⚠️ Nenhuma oportunidade VIP encontrada nas próximas horas. O VAR segue de olho...")
         if hora_brt.hour >= 21:
             msg_boa_noite = (
-                "🌙 *FIM DE RODADA! O VAR ENCERRA OS TRABALHOS!* 🏁\n\n"
+                "🌙 <b>FIM DE RODADA! O VAR ENCERRA OS TRABALHOS!</b> 🏁\n\n"
                 "Por hoje é só, amigos! O dever foi cumprido e a rodada da noite fechou sem novos lances. "
                 "Hora de desligar os servidores, guardar os greens no bolso e descansar a mente.\n\n"
                 "Grande abraço do VAR e boa noite, campeões! 🛌⚽💰"
@@ -189,13 +197,13 @@ def executar_analise():
         analise = analisar_com_ia_e_dados(jogo, liga)
         print(f"✅ Análise concluída! Tentando enviar para o Telegram...")
         
-        msg_final = f"🔍 *RELATÓRIO DE INTELIGÊNCIA*\n⚽ *{casa}* vs *{fora}*\n🏆 {liga}\n\n{analise}\n\n👉 *Aposta sugerida? Confira na sua Casa favorita!*"
+        msg_final = f"🔍 <b>RELATÓRIO DE INTELIGÊNCIA</b>\n⚽ <b>{casa}</b> vs <b>{fora}</b>\n🏆 {liga}\n\n{analise}\n\n👉 <b>Aposta sugerida? Confira na sua Casa favorita!</b>"
         enviar_telegram(msg_final)
         time.sleep(15) 
 
     if hora_brt.hour >= 21:
         msg_boa_noite = (
-            "🌙 *FIM DE RODADA! O VAR ENCERRA OS TRABALHOS!* 🏁\n\n"
+            "🌙 <b>FIM DE RODADA! O VAR ENCERRA OS TRABALHOS!</b> 🏁\n\n"
             "Por hoje é só, amigos! O robô varreu os campos, a IA trabalhou firme e o green foi decretado. "
             "Agora é hora de desligar os motores, descansar a mente e se preparar para os lucros de amanhã.\n\n"
             "Grande abraço do VAR e uma excelente noite de sono para todos! 🛌⚽💰"
@@ -221,13 +229,13 @@ def enviar_resumo_do_dia():
 
     if not jogos_finalizados: return
 
-    msg = "🏁 *FECHAMENTO DO VAR: BALANÇO DO DIA*\n\n"
+    msg = "🏁 <b>FECHAMENTO DO VAR: BALANÇO DO DIA</b>\n\n"
     for jogo in jogos_finalizados:
         casa = traduzir(jogo['teams']['home']['name'])
         fora = traduzir(jogo['teams']['away']['name'])
-        msg += f"⚽ {casa} *{jogo['goals']['home']} x {jogo['goals']['away']}* {fora}\n"
+        msg += f"⚽ {casa} <b>{jogo['goals']['home']} x {jogo['goals']['away']}</b> {fora}\n"
     
-    msg += "\n*O VAR encerra os trabalhos. Amanhã tem mais!* 🚀"
+    msg += "\n<b>O VAR encerra os trabalhos. Amanhã tem mais!</b> 🚀"
     enviar_telegram(msg)
 
 # --- Fluxo de Entrada Principal ---
