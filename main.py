@@ -135,8 +135,11 @@ def executar_analise():
     }
     
     try:
-        resposta = requests.get(url_api, headers=headers, params=params, timeout=15)
-        jogos = resposta.json().get('response', [])
+        resposta_bruta = requests.get(url_api, headers=headers, params=params, timeout=15).json()
+        # === A LINHA QUE VAI REVELAR O BLOQUEIO ===
+        print(f"🛑 RESPOSTA COMPLETA DA API: {resposta_bruta}") 
+        
+        jogos = resposta_bruta.get('response', [])
     except Exception as e:
         print(f"❌ Erro ao conectar na API: {e}")
         return
