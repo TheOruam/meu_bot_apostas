@@ -4,7 +4,7 @@ import time
 import json
 from datetime import datetime, timedelta, timezone
 from deep_translator import GoogleTranslator
-import google.generativeai as genai
+from google import genai
 
 # --- Configurações Principais ---
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -23,10 +23,8 @@ LIGAS_TEMPORADA_2026 = [1]
 ARQUIVO_AGENDAMENTOS = "agendamentos_jogos.json"
 
 # --- Inicialização da IA ---
-if GEMINI_API_KEY:
-    genai.configure(api_key=GEMINI_API_KEY)
+client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
-model = genai.GenerativeModel(model_name='gemini-2.5-flash')
 
 
 # --- CORRIGIDO 1: Detecta temporada dinamicamente ---
@@ -156,8 +154,13 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
     3. GRAU DE CONFIANÇA: [Nota 0-10]
     4. PRINCIPAIS RISCOS DA ENTRADA: [Riscos]
     """
+    if not client:
+        return "IA não configurada (GEMINI_API_KEY ausente)."
     try:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
         return response.text if response.text else "IA não retornou análise."
     except Exception as e:
         return f"Erro na análise da IA: {str(e)}"
@@ -403,8 +406,11 @@ if __name__ == "__main__":
     # 1. Processa comandos do Telegram
     processar_updates()
 
-    # CORRIGIDO 2: Remove o "or True" — agenda apenas às 00:00 BRT
-    if hora_brt.hour == 0:
+    # Agenda às 00:00 BRT OU quando não há agendamentos pendentes (primeira execução/manual)
+    agendamentos_atuais = carregar_agendamentos()
+    sem_pendentes = not any(not v['analisado'] for v in agendamentos_atuais.values())
+
+    if hora_brt.hour == 0 or sem_pendentes:
         agendar_analises()
 
     # 3. Verifica e executa análises agendadas
