@@ -124,12 +124,11 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
 # --- Execução Principal de Análise ---
 def executar_analise():
     hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
-    janela_horas = 6 # Aumentado para 6 horas de varredura garantindo o alcance dos jogos
+    janela_horas = 6 
     
     url_api = "https://v3.football.api-sports.io/fixtures"
     headers = {'x-apisports-key': API_FOOTBALL_KEY}
     
-    # AJUSTE DE OURO: Adicionado o fuso horário de São Paulo para a API
     params = {
         'date': hora_brt.strftime('%Y-%m-%d'),
         'timezone': 'America/Sao_Paulo'
@@ -138,21 +137,45 @@ def executar_analise():
     try:
         resposta = requests.get(url_api, headers=headers, params=params, timeout=15)
         jogos = resposta.json().get('response', [])
-    except: return
+    except Exception as e:
+        print(f"❌ Erro ao conectar na API: {e}")
+        return
 
-    # Usando Timestamp (Matemática pura que ignora falhas de fuso horário)
     agora_timestamp = time.time()
     limite_timestamp = agora_timestamp + (janela_horas * 3600)
+    
+    # === MODO DEBUG: IMPRIMINDO NO LOG DO GITHUB ===
+    print(f"🔍 Buscando jogos do dia: {params['date']}")
+    print(f"⏱️ Timestamp Agora: {agora_timestamp} | Limite (Daqui {janela_horas}h): {limite_timestamp}")
+    print(f"⚽ Total de jogos encontrados no mundo hoje: {len(jogos)}")
     
     jogos_validos = []
     for j in jogos:
         try:
             jogo_timestamp = j['fixture']['timestamp']
-            if (j['league']['id'] in LIGAS_PRIORITARIAS and 
-                j['fixture']['status']['short'] == 'NS' and 
-                agora_timestamp <= jogo_timestamp <= limite_timestamp):
-                jogos_validos.append(j)
+            id_liga = j['league']['id']
+            status = j['fixture']['status']['short']
+            
+            # Se for uma liga nossa, ele imprime na tela do GitHub o que está acontecendo
+            if id_liga in LIGAS_PRIORITARIAS:
+                casa = j['teams']['home']['name']
+                fora = j['teams']['away']['name']
+                print(f"👉 ACHOU VIP na API: {casa} vs {fora} | Liga: {id_liga} | Status: {status} | Timestamp do Jogo: {jogo_timestamp}")
+                
+                # Se o status for NS e estiver na janela de tempo, ele aprova
+                if status == 'NS' and agora_timestamp <= jogo_timestamp <= limite_timestamp:
+                    print("✅ Jogo APROVADO pelo filtro de tempo e status!")
+                    jogos_validos.append(j)
+                else:
+                    if status != 'NS':
+                        print("❌ REPROVADO: O jogo não está com status 'NS' (Not Started).")
+                    elif jogo_timestamp < agora_timestamp:
+                        print("❌ REPROVADO: O jogo já passou do horário atual (Timestamp antigo).")
+                    elif jogo_timestamp > limite_timestamp:
+                        print("❌ REPROVADO: O jogo vai demorar muito para começar (Fora da janela).")
         except: continue
+
+    # =================================================
 
     if not jogos_validos:
         enviar_telegram("⚠️ Nenhuma oportunidade VIP encontrada nas próximas horas. O VAR segue de olho...")
@@ -186,7 +209,6 @@ def executar_analise():
             "Grande abraço do VAR e uma excelente noite de sono para todos! 🛌⚽💰"
         )
         enviar_telegram(msg_boa_noite)
-
 # --- Resumo do Dia ---
 def enviar_resumo_do_dia():
     hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
