@@ -133,3 +133,118 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
         return response.text if response.text else "⚠️ IA não retornou análise."
     except Exception as e:
         return f"⚠️ Erro na análise da IA: {str(e)}"
+
+# --- Execução Principal de Análise ---
+def executar_analise():
+    hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
+    janela_horas = 6 
+    
+    url_api = "https://v3.football.api-sports.io/fixtures"
+    headers = {'x-apisports-key': API_FOOTBALL_KEY}
+    
+    params = {
+        'date': hora_brt.strftime('%Y-%m-%d'),
+        'timezone': 'America/Sao_Paulo'
+    }
+    
+    try:
+        resposta = requests.get(url_api, headers=headers, params=params, timeout=15)
+        jogos = resposta.json().get('response', [])
+    except Exception as e:
+        print(f"❌ Erro ao conectar na API: {e}")
+        return
+
+    agora_timestamp = time.time()
+    limite_timestamp = agora_timestamp + (janela_horas * 3600)
+    
+    print(f"🔍 Buscando jogos do dia: {params['date']}")
+    print(f"⚽ Total de jogos encontrados no mundo hoje: {len(jogos)}")
+    
+    jogos_validos = []
+    for j in jogos:
+        try:
+            jogo_timestamp = j['fixture']['timestamp']
+            id_liga = j['league']['id']
+            status = j['fixture']['status']['short']
+            
+            if id_liga in LIGAS_PRIORITARIAS:
+                if status == 'NS' and agora_timestamp <= jogo_timestamp <= limite_timestamp:
+                    jogos_validos.append(j)
+        except: continue
+
+    if not jogos_validos:
+        enviar_telegram("⚠️ Nenhuma oportunidade VIP encontrada nas próximas horas. O VAR segue de olho...")
+        if hora_brt.hour >= 21:
+            msg_boa_noite = (
+                "🌙 <b>FIM DE RODADA! O VAR ENCERRA OS TRABALHOS!</b> 🏁\n\n"
+                "Por hoje é só, amigos! O dever foi cumprido e a rodada da noite fechou sem novos lances. "
+                "Hora de desligar os servidores, guardar os greens no bolso e descansar a mente.\n\n"
+                "Grande abraço do VAR e boa noite, campeões! 🛌⚽💰"
+            )
+            enviar_telegram(msg_boa_noite)
+        return
+
+    enviar_telegram("⚽ O VAR do Lucro entrou em campo! Analisando os lances de hoje...")
+
+    for jogo in jogos_validos:
+        liga = traduzir(jogo['league']['name'])
+        casa = traduzir(jogo['teams']['home']['name'])
+        fora = traduzir(jogo['teams']['away']['name'])
+        
+        print(f"🧠 A Inteligência Artificial está analisando: {casa} vs {fora}...")
+        analise = analisar_com_ia_e_dados(jogo, liga)
+        print(f"✅ Análise concluída! Tentando enviar para o Telegram...")
+        
+        msg_final = f"🔍 <b>RELATÓRIO DE INTELIGÊNCIA</b>\n⚽ <b>{casa}</b> vs <b>{fora}</b>\n🏆 {liga}\n\n{analise}\n\n👉 <b>Aposta sugerida? Confira na sua Casa favorita!</b>"
+        enviar_telegram(msg_final)
+        time.sleep(15) 
+
+    if hora_brt.hour >= 21:
+        msg_boa_noite = (
+            "🌙 <b>FIM DE RODADA! O VAR ENCERRA OS TRABALHOS!</b> 🏁\n\n"
+            "Por hoje é só, amigos! O robô varreu os campos, a IA trabalhou firme e o green foi decretado. "
+            "Agora é hora de desligar os motores, descansar a mente e se preparar para os lucros de amanhã.\n\n"
+            "Grande abraço do VAR e uma excelente noite de sono para todos! 🛌⚽💰"
+        )
+        enviar_telegram(msg_boa_noite)
+
+# --- Resumo do Dia ---
+def enviar_resumo_do_dia():
+    hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
+    url_api = "https://v3.football.api-sports.io/fixtures"
+    headers = {'x-apisports-key': API_FOOTBALL_KEY}
+    params = {
+        'date': hora_brt.strftime('%Y-%m-%d'),
+        'timezone': 'America/Sao_Paulo'
+    }
+    
+    try:
+        resposta = requests.get(url_api, headers=headers, params=params, timeout=15)
+        jogos = resposta.json().get('response', [])
+    except: return
+
+    jogos_finalizados = [j for j in jogos if j['league']['id'] in LIGAS_PRIORITARIAS and j['fixture']['status']['short'] == 'FT']
+
+    if not jogos_finalizados: return
+
+    msg = "🏁 <b>FECHAMENTO DO VAR: BALANÇO DO DIA</b>\n\n"
+    for jogo in jogos_finalizados:
+        casa = traduzir(jogo['teams']['home']['name'])
+        fora = traduzir(jogo['teams']['away']['name'])
+        msg += f"⚽ {casa} <b>{jogo['goals']['home']} x {jogo['goals']['away']}</b> {fora}\n"
+    
+    msg += "\n<b>O VAR encerra os trabalhos. Amanhã tem mais!</b> 🚀"
+    enviar_telegram(msg)
+
+# --- Fluxo de Entrada Principal ---
+if __name__ == "__main__":
+    # 1. Primeiro ele olha se tem membros novos ou comandos (sem bloquear o resto)
+    processar_updates()
+    
+    # 2. Depois ele SEMPRE roda a varredura de jogos do horário
+    hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
+    
+    if hora_brt.hour >= 23 or hora_brt.hour < 1:
+        enviar_resumo_do_dia()
+    elif 5 <= hora_brt.hour <= 22:
+        executar_analise()
