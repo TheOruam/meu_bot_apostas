@@ -2,7 +2,7 @@ import os
 import requests
 import random
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone # <-- Ajustado para o Python moderno
 from deep_translator import GoogleTranslator
 import google.generativeai as genai 
 
@@ -18,12 +18,12 @@ LIGAS_PRIORITARIAS = [1, 2, 3, 13, 71, 72, 73, 39, 140, 135, 78, 61, 848, 866]
 # --- Inicialização da IA (Versão com Cota Grátis Ativa) ---
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    # Aqui está a mágica: Atualizado para o Gemini 2.5 Flash
-    # No seu main.py, altere a inicialização do modelo para:
-model = genai.GenerativeModel(
-    model_name='gemini-2.5-flash',
-    tools=[{'google_search_retrieval': {}}] # Ativa o motor de busca em tempo real
-)
+    
+    # Mantido o 2.5 Flash com busca conforme sua preferência para testes futuros
+    model = genai.GenerativeModel(
+        model_name='gemini-2.5-flash',
+        tools=[{'google_search_retrieval': {}}] 
+    )
 
 # --- Funções Utilitárias ---
 def enviar_telegram(texto, chat_id=CHAT_ID):
@@ -67,7 +67,8 @@ def processar_updates():
         resposta = requests.get(url, timeout=10).json()
         if "result" not in resposta: return False
         
-        agora_timestamp = datetime.utcnow().timestamp()
+        # Ajustado para o fuso horário moderno
+        agora_timestamp = datetime.now(timezone.utc).timestamp()
         
         for update in resposta["result"]:
             if "message" not in update: continue
@@ -130,7 +131,6 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
     casa = jogo_dados['teams']['home']['name']
     fora = jogo_dados['teams']['away']['name']
     
-    # Extração de dados da API (para passar como "fato" para a IA)
     home_stats = jogo_dados.get('teams', {}).get('home', {})
     away_stats = jogo_dados.get('teams', {}).get('away', {})
     
@@ -152,7 +152,6 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
     ⚠️ 4. PRINCIPAIS RISCOS DA ENTRADA: [Baseado em possíveis desfalques ou notícias negativas]
     """
     try:
-        # Ao usar o tool, a IA fará a busca automaticamente antes de responder
         response = model.generate_content(prompt)
         return response.text if response.text else "⚠️ IA não retornou análise."
     except Exception as e:
@@ -160,7 +159,8 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
 
 # --- Execução Principal de Análise ---
 def executar_analise():
-    hora_utc = datetime.utcnow()
+    # Ajustado para o fuso horário moderno
+    hora_utc = datetime.now(timezone.utc)
     hora_brt = hora_utc - timedelta(hours=3)
     
     if 5 <= hora_brt.hour < 7:
@@ -180,13 +180,15 @@ def executar_analise():
     except Exception as e:
         return
 
-    agora_utc = datetime.utcnow()
+    # Ajustado para o fuso horário moderno
+    agora_utc = datetime.now(timezone.utc)
     limite_utc = agora_utc + timedelta(hours=janela_horas)
     
     jogos_validos = []
     for j in jogos:
         try:
-            fixture_date_utc = datetime.strptime(j['fixture']['date'], '%Y-%m-%dT%H:%M:%S+00:00')
+            # O formato vindo da API já tem o +00:00, então podemos comparar com o UTC moderno
+            fixture_date_utc = datetime.strptime(j['fixture']['date'], '%Y-%m-%dT%H:%M:%S+00:00').replace(tzinfo=timezone.utc)
             if (j['league']['id'] in LIGAS_PRIORITARIAS and 
                 j['fixture']['status']['short'] == 'NS' and 
                 agora_utc <= fixture_date_utc <= limite_utc):
@@ -208,12 +210,11 @@ def executar_analise():
         msg_final = f"🔍 *RELATÓRIO DE INTELIGÊNCIA*\n⚽ *{casa}* vs *{fora}*\n🏆 {liga}\n\n{analise}\n\n👉 *Aposta sugerida? Confira na sua Casa favorita!*"
         enviar_telegram(msg_final)
         
-        # O intervalo de 6 segundos foi mantido para segurança
         time.sleep(15) 
 
 # --- Resumo do Dia ---
 def enviar_resumo_do_dia():
-    hora_brt = datetime.utcnow() - timedelta(hours=3)
+    hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
     url_api = "https://v3.football.api-sports.io/fixtures"
     headers = {'x-apisports-key': API_FOOTBALL_KEY}
     params = {'date': hora_brt.strftime('%Y-%m-%d')}
@@ -243,7 +244,7 @@ if __name__ == "__main__":
     if foi_comando_manual:
         pass
     else:
-        hora_brt = datetime.utcnow() - timedelta(hours=3)
+        hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
         
         if hora_brt.hour >= 23 or hora_brt.hour < 1:
             enviar_resumo_do_dia()
