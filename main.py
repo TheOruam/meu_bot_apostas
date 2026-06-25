@@ -2,7 +2,7 @@ import os
 import requests
 import random
 import time
-from datetime import datetime, timedelta, timezone # <-- Ajustado para o Python moderno
+from datetime import datetime, timedelta
 from deep_translator import GoogleTranslator
 import google.generativeai as genai 
 
@@ -18,12 +18,10 @@ LIGAS_PRIORITARIAS = [1, 2, 3, 13, 71, 72, 73, 39, 140, 135, 78, 61, 848, 866]
 # --- Inicialização da IA (Versão com Cota Grátis Ativa) ---
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
-    
-    # Mantido o 2.5 Flash com busca conforme sua preferência para testes futuros
-    model = genai.GenerativeModel(
-        model_name='gemini-2.5-flash',
-        tools=[{'google_search_retrieval': {}}] 
-    )
+model = genai.GenerativeModel(
+    model_name='gemini-2.5-flash',
+    tools=[{'google_search_retrieval': {}}] # Ativa o motor de busca em tempo real
+)
 
 # --- Funções Utilitárias ---
 def enviar_telegram(texto, chat_id=CHAT_ID):
@@ -67,8 +65,7 @@ def processar_updates():
         resposta = requests.get(url, timeout=10).json()
         if "result" not in resposta: return False
         
-        # Ajustado para o fuso horário moderno
-        agora_timestamp = datetime.now(timezone.utc).timestamp()
+        agora_timestamp = datetime.utcnow().timestamp()
         
         for update in resposta["result"]:
             if "message" not in update: continue
@@ -159,17 +156,12 @@ def analisar_com_ia_e_dados(jogo_dados, liga_nome):
 
 # --- Execução Principal de Análise ---
 def executar_analise():
-    # Ajustado para o fuso horário moderno
-    hora_utc = datetime.now(timezone.utc)
+    hora_utc = datetime.utcnow()
     hora_brt = hora_utc - timedelta(hours=3)
     
-    if 5 <= hora_brt.hour < 7:
-        janela_horas = 9  
-    elif 12 <= hora_brt.hour < 14:
-        janela_horas = 11 
-    else:
-        janela_horas = 12 
-
+    # Define a janela dinâmica de 5 horas para cobrir os novos intervalos de 4h
+    janela_horas = 5
+    
     url_api = "https://v3.football.api-sports.io/fixtures"
     headers = {'x-apisports-key': API_FOOTBALL_KEY}
     params = {'date': hora_brt.strftime('%Y-%m-%d')}
@@ -180,23 +172,30 @@ def executar_analise():
     except Exception as e:
         return
 
-    # Ajustado para o fuso horário moderno
-    agora_utc = datetime.now(timezone.utc)
+    agora_utc = datetime.utcnow()
     limite_utc = agora_utc + timedelta(hours=janela_horas)
     
     jogos_validos = []
     for j in jogos:
         try:
-            # O formato vindo da API já tem o +00:00, então podemos comparar com o UTC moderno
-            fixture_date_utc = datetime.strptime(j['fixture']['date'], '%Y-%m-%dT%H:%M:%S+00:00').replace(tzinfo=timezone.utc)
+            fixture_date_utc = datetime.strptime(j['fixture']['date'], '%Y-%m-%dT%H:%M:%S+00:00')
             if (j['league']['id'] in LIGAS_PRIORITARIAS and 
                 j['fixture']['status']['short'] == 'NS' and 
                 agora_utc <= fixture_date_utc <= limite_utc):
                 jogos_validos.append(j)
         except: continue
 
+    # Trava específica para o fechamento da rodada das 22:00 caso não haja jogos
     if not jogos_validos:
         enviar_telegram("⚠️ Nenhuma oportunidade VIP encontrada nas próximas horas. O VAR segue de olho...")
+        if hora_brt.hour >= 21:
+            msg_boa_noite = (
+                "🌙 *FIM DE RODADA! O VAR ENCERRA OS TRABALHOS!* 🏁\n\n"
+                "Por hoje é só, amigos! O dever foi cumprido e a rodada da noite fechou sem novos lances. "
+                "Hora de desligar os servidores, guardar os greens no bolso e descansar a mente.\n\n"
+                "Grande abraço do VAR e boa noite, campeões! 🛌⚽💰"
+            )
+            enviar_telegram(msg_boa_noite)
         return
 
     enviar_telegram("⚽ O VAR do Lucro entrou em campo! Analisando os lances de hoje...")
@@ -212,9 +211,19 @@ def executar_analise():
         
         time.sleep(15) 
 
+    # Mensagem divertida de boa noite disparada ao final da pesquisa das 22h (hora_brt.hour estará em 22)
+    if hora_brt.hour >= 21:
+        msg_boa_noite = (
+            "🌙 *FIM DE RODADA! O VAR ENCERRA OS TRABALHOS!* 🏁\n\n"
+            "Por hoje é só, amigos! O robô varreu os campos, a IA trabalhou firme e o green foi decretado. "
+            "Agora é hora de desligar os motores, descansar a mente e se preparar para os lucros de amanhã.\n\n"
+            "Grande abraço do VAR e uma excelente noite de sono para todos! 🛌⚽💰"
+        )
+        enviar_telegram(msg_boa_noite)
+
 # --- Resumo do Dia ---
 def enviar_resumo_do_dia():
-    hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
+    hora_brt = datetime.utcnow() - timedelta(hours=3)
     url_api = "https://v3.football.api-sports.io/fixtures"
     headers = {'x-apisports-key': API_FOOTBALL_KEY}
     params = {'date': hora_brt.strftime('%Y-%m-%d')}
@@ -244,9 +253,9 @@ if __name__ == "__main__":
     if foi_comando_manual:
         pass
     else:
-        hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
+        hora_brt = datetime.utcnow() - timedelta(hours=3)
         
         if hora_brt.hour >= 23 or hora_brt.hour < 1:
             enviar_resumo_do_dia()
-        elif 5 <= hora_brt.hour < 21:
+        elif 5 <= hora_brt.hour <= 22: # Expandido até as 22h para aceitar a nova rodada final
             executar_analise()
