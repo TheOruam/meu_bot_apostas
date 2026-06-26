@@ -112,10 +112,17 @@ def processar_updates(offset=None):
         resposta = requests.get(url, params=params, timeout=15).json()
         if not resposta.get("ok") or not resposta.get("result"):
             return offset
+            
         novo_offset = offset
+        # Definição das variáveis que estavam faltando:
+        agora_atual = time.time()
+        
         for update in resposta["result"]:
             msg = update["message"]
+            if not msg: continue
+                
             chat_id_origem = msg["chat"]["id"]
+            msg_date = msg.get("date", 0)
             user_id = msg["from"]["id"]
             
             # Boas-vindas automáticas para novos membros no grupo
