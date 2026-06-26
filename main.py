@@ -104,21 +104,34 @@ def gerar_mensagem_interativa(comando):
         return "Fala, time! O foco continua no Green!"
 
 # --- Central de Updates (Leitura de Comandos) ---
-def processar_updates():
-    if not TELEGRAM_TOKEN: return
+def processar_updates(offset=None):
+    if not TELEGRAM_TOKEN: return None
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
+    params = {'offset': offset, 'timeout': 10} if offset else {'timeout': 10}
+    
     try:
-        resposta = requests.get(url, timeout=10).json()
-        if "result" not in resposta: return
+        resposta = requests.get(url, params=params, timeout=15).json()
+        if not resposta.get("ok") or not resposta.get("result"):
+            return offset
         
-        agora_timestamp = time.time()
-        
+        novo_offset = offset
         for update in resposta["result"]:
-            if "message" not in update: continue
             msg = update["message"]
             chat_id_origem = msg["chat"]["id"]
             user_id = msg["from"]["id"]
-            msg_date = msg["date"]
+            
+            # Processa o comando... (mantém a lógica que você já tem aqui)
+            if "text" in msg:
+                texto = msg["text"].lower().strip()
+                # ... lógica de comandos /bomdia, /bemvindo, etc ...
+                # (Lembre-se de chamar a função gerar_mensagem_interativa aqui)
+            
+            # Atualiza o offset para o ID desta mensagem + 1
+            novo_offset = update["update_id"] + 1
+            
+        return novo_offset
+    except:
+        return offset
 
             # Boas-vindas automáticas para novos membros no grupo
             if "new_chat_members" in msg and (agora_timestamp - msg_date < 32400):
@@ -268,8 +281,12 @@ if __name__ == "__main__":
     
     ultima_hora_analisada = None
 
+    # Antes do while True
+    offset = None
+
     while True:
         try:
+            offset = processar_updates(offset)
             hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
 
             processar_updates()
