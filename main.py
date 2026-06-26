@@ -30,7 +30,8 @@ def analisar_com_ia_e_dados(jogo, liga):
     # Função tampão. Coloque sua lógica de análise profunda aqui.
     return "📊 Análise técnica em processamento..."
 
-def buscar_e_analisar_jogos():
+# Adicionamos chat_id_destino=CHAT_ID (por padrão, vai para o canal oficial)
+def buscar_e_analisar_jogos(chat_id_destino=CHAT_ID):
     hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
     url_api = "https://v3.football.api-sports.io/fixtures"
     params = {'date': hora_brt.strftime('%Y-%m-%d'), 'timezone': 'America/Sao_Paulo'}
@@ -38,11 +39,13 @@ def buscar_e_analisar_jogos():
     try:
         resposta = requests.get(url_api, headers={'x-apisports-key': API_FOOTBALL_KEY}, params=params, timeout=15)
         jogos = resposta.json().get('response', [])
-    except: return
+    except Exception as e: 
+        print(f"Erro na API de Futebol: {e}")
+        return
 
     agora_timestamp = time.time()
-    janela_inicio = agora_timestamp + 3600
-    janela_fim = agora_timestamp + 7140
+    janela_inicio = agora_timestamp + 3600  # 1 hora a partir de agora
+    janela_fim = agora_timestamp + 7140     # quase 2 horas a partir de agora
     jogos_na_janela = []
     
     for jogo in jogos:
@@ -52,9 +55,14 @@ def buscar_e_analisar_jogos():
                     jogos_na_janela.append(jogo)
         except: continue
 
-    if not jogos_na_janela: return
+    # AQUI ESTÁ A CORREÇÃO DO FEEDBACK
+    if not jogos_na_janela: 
+        # Se for um comando manual (o chat_id_destino é diferente do oficial ou o usuário chamou no PV)
+        if chat_id_destino: 
+            enviar_telegram("⚠️ <b>A varredura foi concluída.</b>\nNão há nenhum jogo das Ligas VIP programado para começar na janela exata da próxima 1 hora.", chat_id_destino)
+        return
 
-    enviar_telegram("⚽ O VAR do Lucro encontrou lances que vão começar em 1 hora! Gerando relatórios...", CHAT_ID)
+    enviar_telegram("⚽ O VAR do Lucro encontrou lances que vão começar em 1 hora! Gerando relatórios...", chat_id_destino)
 
     for jogo in jogos_na_janela:
         liga = traduzir(jogo['league']['name'])
@@ -65,7 +73,7 @@ def buscar_e_analisar_jogos():
         msg_final = (f"🚨 <b>LANCE DE OURO DETECTADO!</b>\n\n⚽ <b>{casa}</b> vs <b>{fora}</b>\n🏆 {liga}\n"
                      f"⏳ <i>O jogo começa em cerca de 1 hora!</i>\n\n{analise}\n\n"
                      f"👉 <b>Aposta sugerida? Confira na sua Casa favorita!</b>")
-        enviar_telegram(msg_final, CHAT_ID)
+        enviar_telegram(msg_final, chat_id_destino)
         time.sleep(15)
 
 def enviar_resumo_do_dia():
