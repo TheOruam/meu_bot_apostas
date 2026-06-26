@@ -118,19 +118,6 @@ def processar_updates(offset=None):
             chat_id_origem = msg["chat"]["id"]
             user_id = msg["from"]["id"]
             
-            # Processa o comando... (mantém a lógica que você já tem aqui)
-            if "text" in msg:
-                texto = msg["text"].lower().strip()
-                # ... lógica de comandos /bomdia, /bemvindo, etc ...
-                # (Lembre-se de chamar a função gerar_mensagem_interativa aqui)
-            
-            # Atualiza o offset para o ID desta mensagem + 1
-            novo_offset = update["update_id"] + 1
-            
-        return novo_offset
-    except:
-        return offset
-
             # Boas-vindas automáticas para novos membros no grupo
     if "new_chat_members" in msg and (agora_timestamp - msg_date < 32400):
                 for novo_membro in msg["new_chat_members"]:
@@ -166,6 +153,19 @@ def processar_updates(offset=None):
                     enviar_telegram(mensagem_gerada, chat_id_origem)
     except Exception as e:
         print(f"⚠️ Falha ao processar updates do Telegram: {e}")
+            
+            # Processa o comando... (mantém a lógica que você já tem aqui)
+            if "text" in msg:
+                texto = msg["text"].lower().strip()
+                # ... lógica de comandos /bomdia, /bemvindo, etc ...
+                # (Lembre-se de chamar a função gerar_mensagem_interativa aqui)
+            
+            # Atualiza o offset para o ID desta mensagem + 1
+            novo_offset = update["update_id"] + 1
+            
+        return novo_offset
+    except:
+        return offset
 
 # --- Execução Principal de Análise (Futebol) ---
 def buscar_e_analisar_jogos():
