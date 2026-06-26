@@ -126,7 +126,7 @@ def processar_updates(offset=None):
             user_id = msg["from"]["id"]
             
             # Boas-vindas automáticas para novos membros no grupo
-            if "new_chat_members" in msg and (agora_timestamp - msg_date < 32400):
+            if "new_chat_members" in msg and (agora_atual - msg_date < 32400):
                 for novo_membro in msg["new_chat_members"]:
                     if novo_membro.get("is_bot"): continue
                     nome_membro = novo_membro.get("first_name", "Craque")
@@ -145,7 +145,7 @@ def processar_updates(offset=None):
             if "text" in msg:
                 texto = msg["text"].lower().strip()
                 # Ignora mensagens enviadas há mais de 10 minutos para não responder comandos antigos
-                if agora_timestamp - msg_date > 600: continue
+                if aagora_atual - msg_date > 600: continue
                 
                     comandos_ia = ["/bomdia", "/bemvindo", "/start", "/green", "/red", "/resenha"]
                 
