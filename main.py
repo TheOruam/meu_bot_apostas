@@ -258,3 +258,34 @@ if __name__ == "__main__":
         enviar_resumo_do_dia()
     else:
         buscar_e_analisar_jogos()
+
+# --- Fluxo de Entrada Principal (Servidor Contínuo 24/7) ---
+if __name__ == "__main__":
+    print("🚀 Servidor do VAR do Lucro iniciado com sucesso!")
+    
+    # Liga o servidor fantasma para o Render não dormir
+    keep_alive()
+    
+    ultima_hora_analisada = None
+
+    while True:
+        try:
+            hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
+
+            processar_updates()
+
+            if hora_brt.minute == 0 and hora_brt.hour != ultima_hora_analisada:
+                print(f"\n{'='*50}\nVAR DO LUCRO - {hora_brt.strftime('%d/%m/%Y %H:%M:%S')}\n{'='*50}")
+
+                if hora_brt.hour == 23:
+                    enviar_resumo_do_dia()
+                else:
+                    buscar_e_analisar_jogos()
+
+                ultima_hora_analisada = hora_brt.hour 
+
+            time.sleep(3)
+            
+        except Exception as e:
+            print(f"⚠️ Erro no loop principal: {e}")
+            time.sleep(10)
