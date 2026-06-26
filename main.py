@@ -119,7 +119,7 @@ def processar_updates(offset=None):
             user_id = msg["from"]["id"]
             
             # Boas-vindas automáticas para novos membros no grupo
-    if "new_chat_members" in msg and (agora_timestamp - msg_date < 32400):
+            if "new_chat_members" in msg and (agora_timestamp - msg_date < 32400):
                 for novo_membro in msg["new_chat_members"]:
                     if novo_membro.get("is_bot"): continue
                     nome_membro = novo_membro.get("first_name", "Craque")
@@ -140,31 +140,25 @@ def processar_updates(offset=None):
                 # Ignora mensagens enviadas há mais de 10 minutos para não responder comandos antigos
                 if agora_timestamp - msg_date > 600: continue
                 
-                comandos_ia = ["/bomdia", "/bemvindo", "/start", "/green", "/red", "/resenha"]
+                    comandos_ia = ["/bomdia", "/bemvindo", "/start", "/green", "/red", "/resenha"]
                 
-                if texto in comandos_ia and verificar_se_eh_admin(chat_id_origem, user_id):
-                    comando_real = "/bemvindo" if texto == "/start" else texto
+                        if texto in comandos_ia and verificar_se_eh_admin(chat_id_origem, user_id):
+                            comando_real = "/bemvindo" if texto == "/start" else texto
                     
-                    # Notificação de digitação visual para o grupo
-                    enviar_telegram("<i>⏳ O VAR está a analisar o chat...</i>", chat_id_origem)
+                            # Notificação de digitação visual para o grupo
+                            enviar_telegram("<i>⏳ O VAR está a analisar o chat...</i>", chat_id_origem)
                     
-                    # Gera e envia a resposta dinâmica da IA
-                    mensagem_gerada = gerar_mensagem_interativa(comando_real)
-                    enviar_telegram(mensagem_gerada, chat_id_origem)
-    except Exception as e:
-        print(f"⚠️ Falha ao processar updates do Telegram: {e}")
-            
-            # Processa o comando... (mantém a lógica que você já tem aqui)
-            if "text" in msg:
-                texto = msg["text"].lower().strip()
-                # ... lógica de comandos /bomdia, /bemvindo, etc ...
-                # (Lembre-se de chamar a função gerar_mensagem_interativa aqui)
-            
+                            # Gera e envia a resposta dinâmica da IA
+                            mensagem_gerada = gerar_mensagem_interativa(comando_real)
+                            enviar_telegram(mensagem_gerada, chat_id_origem)
+
             # Atualiza o offset para o ID desta mensagem + 1
             novo_offset = update["update_id"] + 1
             
         return novo_offset
-    except:
+
+    except Exception as e:
+        print(f"⚠️ Falha ao processar updates do Telegram: {e}")
         return offset
 
 # --- Execução Principal de Análise (Futebol) ---
