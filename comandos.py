@@ -83,11 +83,10 @@ def processar_updates(offset, funcao_analise_manual):
                     if (agora_atual - msg_date < 600):
                         comandos_ia = ["/bomdia", "/bemvindo", "/start", "/green", "/red", "/resenha", "/update"]
                         
-                        if texto in comandos_ia and verificar_se_eh_admin(chat_id_origem, user_id):
-                            if texto == "/update":
-                                enviar_telegram("🔄 <b>Varredura manual acionada...</b>", chat_id_origem)
-                                # Chama a função que vem do main.py
-                                funcao_analise_manual() 
+                        if texto == "/update":
+                                enviar_telegram("🔄 <b>Varredura manual acionada. Buscando jogos VIP na próxima 1 hora...</b>", chat_id_origem)
+                                # Passa o chat_id para responder no grupo certo!
+                                funcao_analise_manual(chat_id_origem)
                             else:
                                 comando_real = "/bemvindo" if texto == "/start" else texto
                                 enviar_telegram("<i>⏳ O VAR está a analisar o chat...</i>", chat_id_origem)
