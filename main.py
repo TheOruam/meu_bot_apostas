@@ -104,29 +104,24 @@ def gerar_mensagem_interativa(comando):
         return "Fala, time! O foco continua no Green!"
 
 # --- Central de Updates (Leitura de Comandos) ---
-def processar_updates(offset=None):
-    if not TELEGRAM_TOKEN: return None
+def processar_updates():
+    if not TELEGRAM_TOKEN: return
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
-    params = {'offset': offset, 'timeout': 10} if offset else {'timeout': 10}
     try:
-        resposta = requests.get(url, params=params, timeout=15).json()
-        if not resposta.get("ok") or not resposta.get("result"):
-            return offset
-            
-        novo_offset = offset
-        # Definição das variáveis que estavam faltando:
-        agora_atual = time.time()
+        resposta = requests.get(url, timeout=10).json()
+        if "result" not in resposta: return
+        
+        agora_timestamp = time.time()
         
         for update in resposta["result"]:
+            if "message" not in update: continue
             msg = update["message"]
-            if not msg: continue
-                
             chat_id_origem = msg["chat"]["id"]
-            msg_date = msg.get("date", 0)
             user_id = msg["from"]["id"]
-            
+            msg_date = msg["date"]
+
             # Boas-vindas automáticas para novos membros no grupo
-            if "new_chat_members" in msg and (agora_atual - msg_date < 32400):
+            if "new_chat_members" in msg and (agora_timestamp - msg_date < 32400):
                 for novo_membro in msg["new_chat_members"]:
                     if novo_membro.get("is_bot"): continue
                     nome_membro = novo_membro.get("first_name", "Craque")
@@ -145,28 +140,21 @@ def processar_updates(offset=None):
             if "text" in msg:
                 texto = msg["text"].lower().strip()
                 # Ignora mensagens enviadas há mais de 10 minutos para não responder comandos antigos
-                if agora_atual - msg_date > 600: continue
+                if agora_timestamp - msg_date > 600: continue
                 
-                    comandos_ia = ["/bomdia", "/bemvindo", "/start", "/green", "/red", "/resenha"]
+                comandos_ia = ["/bomdia", "/bemvindo", "/start", "/green", "/red", "/resenha"]
                 
-                        if texto in comandos_ia and verificar_se_eh_admin(chat_id_origem, user_id):
-                            comando_real = "/bemvindo" if texto == "/start" else texto
+                if texto in comandos_ia and verificar_se_eh_admin(chat_id_origem, user_id):
+                    comando_real = "/bemvindo" if texto == "/start" else texto
                     
-                            # Notificação de digitação visual para o grupo
-                            enviar_telegram("<i>⏳ O VAR está a analisar o chat...</i>", chat_id_origem)
+                    # Notificação de digitação visual para o grupo
+                    enviar_telegram("<i>⏳ O VAR está a analisar o chat...</i>", chat_id_origem)
                     
-                            # Gera e envia a resposta dinâmica da IA
-                            mensagem_gerada = gerar_mensagem_interativa(comando_real)
-                            enviar_telegram(mensagem_gerada, chat_id_origem)
-
-            # Atualiza o offset para o ID desta mensagem + 1
-            novo_offset = update["update_id"] + 1
-            
-        return novo_offset
-
+                    # Gera e envia a resposta dinâmica da IA
+                    mensagem_gerada = gerar_mensagem_interativa(comando_real)
+                    enviar_telegram(mensagem_gerada, chat_id_origem)
     except Exception as e:
         print(f"⚠️ Falha ao processar updates do Telegram: {e}")
-        return offset
 
 # --- Execução Principal de Análise (Futebol) ---
 def buscar_e_analisar_jogos():
@@ -257,6 +245,20 @@ def enviar_resumo_do_dia():
     msg += "\n<b>O VAR encerra os trabalhos por hoje. Amanhã há mais greens!</b> 🚀"
     enviar_telegram(msg)
 
+# --- Fluxo de Entrada Principal (Executado de hora em hora) ---
+if __name__ == "__main__":
+    hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
+    print(f"\n{'='*50}\nVAR DO LUCRO - {hora_brt.strftime('%d/%m/%Y %H:%M:%S')}\n{'='*50}")
+
+    # 1. Executa comandos pendentes enviados por Admins no Telegram
+    processar_updates()
+
+    # 2. Executa a varredura automática de jogos ou balanço do dia
+    if hora_brt.hour == 23:
+        enviar_resumo_do_dia()
+    else:
+        buscar_e_analisar_jogos()
+
 # --- Fluxo de Entrada Principal (Servidor Contínuo 24/7) ---
 if __name__ == "__main__":
     print("🚀 Servidor do VAR do Lucro iniciado com sucesso!")
@@ -266,13 +268,11 @@ if __name__ == "__main__":
     
     ultima_hora_analisada = None
 
-    # Antes do while True
-    offset = None
-
     while True:
         try:
-            offset = processar_updates(offset)
             hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
+
+            processar_updates()
 
             if hora_brt.minute == 0 and hora_brt.hour != ultima_hora_analisada:
                 print(f"\n{'='*50}\nVAR DO LUCRO - {hora_brt.strftime('%d/%m/%Y %H:%M:%S')}\n{'='*50}")
