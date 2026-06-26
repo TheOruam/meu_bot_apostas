@@ -107,13 +107,22 @@ def gerar_mensagem_interativa(comando):
 def processar_updates():
     if not TELEGRAM_TOKEN: return
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
+    
+    # O "offset" aqui garante que só leremos mensagens novas
+    params = {'offset': offset, 'timeout': 10} if offset else {'timeout': 10}
+    
     try:
         resposta = requests.get(url, timeout=10).json()
         if "result" not in resposta: return
-        
+            return offset
+
+        novo_offset = offset
         agora_timestamp = time.time()
         
         for update in resposta["result"]:
+            # Atualiza o offset para o ID da mensagem + 1
+            # Isso é o que impede a repetição infinita!
+            novo_offset = update["update_id"] + 1
             if "message" not in update: continue
             msg = update["message"]
             chat_id_origem = msg["chat"]["id"]
@@ -145,14 +154,24 @@ def processar_updates():
                 comandos_ia = ["/bomdia", "/bemvindo", "/start", "/green", "/red", "/resenha"]
                 
                 if texto in comandos_ia and verificar_se_eh_admin(chat_id_origem, user_id):
-                    comando_real = "/bemvindo" if texto == "/start" else texto
                     
-                    # Notificação de digitação visual para o grupo
-                    enviar_telegram("<i>⏳ O VAR está a analisar o chat...</i>", chat_id_origem)
+                    if texto == "/update":
+                            enviar_telegram("🔄 <b>Iniciando varredura manual...</b>", chat_id)
+                            buscar_e_analisar_jogos()
+                            enviar_telegram("✅ <b>Busca concluída!</b>", chat_id)
+
+                    else:
+                        comando_real = "/bemvindo" if texto == "/start" else texto
                     
-                    # Gera e envia a resposta dinâmica da IA
-                    mensagem_gerada = gerar_mensagem_interativa(comando_real)
-                    enviar_telegram(mensagem_gerada, chat_id_origem)
+                        # Notificação de digitação visual para o grupo
+                        enviar_telegram("<i>⏳ O VAR está a analisar o chat...</i>", chat_id_origem)
+                    
+                        # Gera e envia a resposta dinâmica da IA
+                        mensagem_gerada = gerar_mensagem_interativa(comando_real)
+                        enviar_telegram(mensagem_gerada, chat_id_origem)
+
+        return novo_offset
+    
     except Exception as e:
         print(f"⚠️ Falha ao processar updates do Telegram: {e}")
 
