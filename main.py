@@ -4,24 +4,6 @@ import time
 from datetime import datetime, timedelta, timezone
 from deep_translator import GoogleTranslator
 from google import genai
-from flask import Flask
-from threading import Thread
-
-# --- Servidor Fantasma (Para o Render não desligar o Bot) ---
-app = Flask(__name__)
-
-@app.route('/')
-def home():
-    return "VAR do Lucro está Online e Operante!"
-
-def run_server():
-    app.run(host='0.0.0.0', port=8080)
-
-def keep_alive():
-    t = Thread(target=run_server)
-    t.start()
-
-# ... (aqui continua todo o resto do seu código de configurações, ligas e funções) ...
 
 # --- Configurações Principais ---
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -107,22 +89,13 @@ def gerar_mensagem_interativa(comando):
 def processar_updates():
     if not TELEGRAM_TOKEN: return
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
-    
-    # O "offset" aqui garante que só leremos mensagens novas
-    params = {'offset': offset, 'timeout': 10} if offset else {'timeout': 10}
-    
     try:
         resposta = requests.get(url, timeout=10).json()
         if "result" not in resposta: return
-            return offset
-
-        novo_offset = offset
+        
         agora_timestamp = time.time()
         
         for update in resposta["result"]:
-            # Atualiza o offset para o ID da mensagem + 1
-            # Isso é o que impede a repetição infinita!
-            novo_offset = update["update_id"] + 1
             if "message" not in update: continue
             msg = update["message"]
             chat_id_origem = msg["chat"]["id"]
@@ -151,27 +124,17 @@ def processar_updates():
                 # Ignora mensagens enviadas há mais de 10 minutos para não responder comandos antigos
                 if agora_timestamp - msg_date > 600: continue
                 
-                comandos_ia = ["/bomdia", "/bemvindo", "/start", "/green", "/red", "/resenha", "/update"]
+                comandos_ia = ["/bomdia", "/bemvindo", "/start", "/green", "/red", "/resenha"]
                 
                 if texto in comandos_ia and verificar_se_eh_admin(chat_id_origem, user_id):
+                    comando_real = "/bemvindo" if texto == "/start" else texto
                     
-                    if texto == "/update":
-                            enviar_telegram("🔄 <b>Iniciando varredura manual...</b>", chat_id)
-                            buscar_e_analisar_jogos()
-                            enviar_telegram("✅ <b>Busca concluída!</b>", chat_id)
-
-                    else:
-                        comando_real = "/bemvindo" if texto == "/start" else texto
+                    # Notificação de digitação visual para o grupo
+                    enviar_telegram("<i>⏳ O VAR está a analisar o chat...</i>", chat_id_origem)
                     
-                        # Notificação de digitação visual para o grupo
-                        enviar_telegram("<i>⏳ O VAR está a analisar o chat...</i>", chat_id_origem)
-                    
-                        # Gera e envia a resposta dinâmica da IA
-                        mensagem_gerada = gerar_mensagem_interativa(comando_real)
-                        enviar_telegram(mensagem_gerada, chat_id_origem)
-
-        return novo_offset
-    
+                    # Gera e envia a resposta dinâmica da IA
+                    mensagem_gerada = gerar_mensagem_interativa(comando_real)
+                    enviar_telegram(mensagem_gerada, chat_id_origem)
     except Exception as e:
         print(f"⚠️ Falha ao processar updates do Telegram: {e}")
 
@@ -277,34 +240,3 @@ if __name__ == "__main__":
         enviar_resumo_do_dia()
     else:
         buscar_e_analisar_jogos()
-
-# --- Fluxo de Entrada Principal (Servidor Contínuo 24/7) ---
-if __name__ == "__main__":
-    print("🚀 Servidor do VAR do Lucro iniciado com sucesso!")
-    
-    # Liga o servidor fantasma para o Render não dormir
-    keep_alive()
-    
-    ultima_hora_analisada = None
-
-    while True:
-        try:
-            hora_brt = datetime.now(timezone.utc) - timedelta(hours=3)
-
-            processar_updates()
-
-            if hora_brt.minute == 0 and hora_brt.hour != ultima_hora_analisada:
-                print(f"\n{'='*50}\nVAR DO LUCRO - {hora_brt.strftime('%d/%m/%Y %H:%M:%S')}\n{'='*50}")
-
-                if hora_brt.hour == 23:
-                    enviar_resumo_do_dia()
-                else:
-                    buscar_e_analisar_jogos()
-
-                ultima_hora_analisada = hora_brt.hour 
-
-            time.sleep(3)
-            
-        except Exception as e:
-            print(f"⚠️ Erro no loop principal: {e}")
-            time.sleep(10)
