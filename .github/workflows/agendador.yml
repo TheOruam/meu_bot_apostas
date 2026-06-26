@@ -2,10 +2,8 @@ name: Bot VAR do Lucro
 
 on:
   schedule:
-    # Executa a cada 5 minutos para verificar análises agendadas
-    - cron: '*/5 * * * *'
-    # Garante execução às 00:00 BRT para agendar jogos do dia (03:00 UTC)
-    - cron: '0 3 * * *'
+    # Executa de hora em hora (no minuto 0)
+    - cron: '0 * * * *'
   # Permite rodar manualmente para testes
   workflow_dispatch:
 
@@ -13,22 +11,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # 1. Baixa o código do repositório
       - uses: actions/checkout@v3
       
-      # 2. Configura o Python
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
           
-      # 3. Instala as bibliotecas necessárias
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install requests google-genai deep-translator
+          pip install -r requirements.txt
           
-      # 4. Executa o Bot passando os Segredos
       - name: Run Bot
         run: python main.py
         env:
