@@ -4,6 +4,24 @@ import time
 from datetime import datetime, timedelta, timezone
 from deep_translator import GoogleTranslator
 from google import genai
+from flask import Flask
+from threading import Thread
+
+# --- Servidor Fantasma (Para o Render não desligar o Bot) ---
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "VAR do Lucro está Online e Operante!"
+
+def run_server():
+    app.run(host='0.0.0.0', port=8080)
+
+def keep_alive():
+    t = Thread(target=run_server)
+    t.start()
+
+# ... (aqui continua todo o resto do seu código de configurações, ligas e funções) ...
 
 # --- Configurações Principais ---
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
