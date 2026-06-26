@@ -79,7 +79,7 @@ def analisar_com_ia_e_dados(jogo, liga):
     # Função tampão para evitar NameError. Pode implementar sua lógica de IA profunda aqui.
     return "📊 Análise técnica em processamento..."
 
-# --- Central de Updates (Leitura de Comandos) ---
+# --- Central de Updates (Versão Blindada Contra Repetições) ---
 def processar_updates(offset=None):
     if not TELEGRAM_TOKEN: return offset
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"
@@ -90,46 +90,51 @@ def processar_updates(offset=None):
         if not resposta.get("ok") or not resposta.get("result"):
             return offset
             
-        novo_offset = offset
         agora_atual = time.time()
         
         for update in resposta["result"]:
+            # 1. ATUALIZAMOS O MARCADOR IMEDIATAMENTE
+            # Assim, mesmo que o código dê erro abaixo, a mensagem nunca mais se repete!
+            offset = update["update_id"] + 1
+            
             msg = update.get("message")
-            if not msg: 
-                novo_offset = update["update_id"] + 1
-                continue
+            if not msg: continue
                 
             chat_id_origem = msg.get("chat", {}).get("id")
             user_id = msg.get("from", {}).get("id")
             msg_date = msg.get("date", 0)
             
-            # Boas-vindas
-            if "new_chat_members" in msg and (agora_atual - msg_date < 300):
-                for novo_membro in msg["new_chat_members"]:
-                    if novo_membro.get("is_bot"): continue
-                    nome_membro = novo_membro.get("first_name", "Craque")
-                    msg_boas_vindas = f"👋 <b>Fala, {nome_membro}! GOOOOOOL!</b>\n\nSeja bem-vindo ao <b>VAR do Lucro</b>! 🟢\nEntraste para o time de análise técnica.\n\n💰 Vamos para cima deles!"
-                    enviar_telegram(msg_boas_vindas, chat_id_origem)
+            # 2. ISOLAMOS OS COMANDOS EM UM BLOCO "TRY"
+            try:
+                # Boas-vindas
+                if "new_chat_members" in msg and (agora_atual - msg_date < 300):
+                    for novo_membro in msg["new_chat_members"]:
+                        if novo_membro.get("is_bot"): continue
+                        nome_membro = novo_membro.get("first_name", "Craque")
+                        msg_boas_vindas = f"👋 <b>Fala, {nome_membro}! GOOOOOOL!</b>\n\nSeja bem-vindo ao <b>VAR do Lucro</b>! 🟢\nEntraste para o time de análise técnica.\n\n💰 Vamos para cima deles!"
+                        enviar_telegram(msg_boas_vindas, chat_id_origem)
 
-            # Comandos
-            if "text" in msg:
-                texto = msg["text"].lower().strip()
-                if (agora_atual - msg_date < 600):
-                    comandos_ia = ["/bomdia", "/bemvindo", "/start", "/green", "/red", "/resenha", "/update"]
-                    
-                    if texto in comandos_ia and verificar_se_eh_admin(chat_id_origem, user_id):
-                        if texto == "/update":
-                            enviar_telegram("🔄 <b>Varredura manual acionada...</b>", chat_id_origem)
-                            buscar_e_analisar_jogos()
-                        else:
-                            comando_real = "/bemvindo" if texto == "/start" else texto
-                            enviar_telegram("<i>⏳ O VAR está a analisar o chat...</i>", chat_id_origem)
-                            enviar_telegram(gerar_mensagem_interativa(comando_real), chat_id_origem)
+                # Comandos de Texto
+                if "text" in msg:
+                    texto = msg["text"].lower().strip()
+                    if (agora_atual - msg_date < 600):
+                        comandos_ia = ["/bomdia", "/bemvindo", "/start", "/green", "/red", "/resenha", "/update"]
+                        
+                        if texto in comandos_ia and verificar_se_eh_admin(chat_id_origem, user_id):
+                            if texto == "/update":
+                                enviar_telegram("🔄 <b>Varredura manual acionada...</b>", chat_id_origem)
+                                buscar_e_analisar_jogos()
+                            else:
+                                comando_real = "/bemvindo" if texto == "/start" else texto
+                                enviar_telegram("<i>⏳ O VAR está a analisar o chat...</i>", chat_id_origem)
+                                enviar_telegram(gerar_mensagem_interativa(comando_real), chat_id_origem)
+            except Exception as erro_interno:
+                print(f"⚠️ Erro ao executar comando: {erro_interno}")
+                # O erro é capturado aqui, e o bot continua rodando sem repetir!
 
-            novo_offset = update["update_id"] + 1
-            
-        return novo_offset
-    except:
+        return offset
+    except Exception as e:
+        print(f"⚠️ Falha de conexão com o Telegram: {e}")
         return offset
 
 # --- Execução Principal de Análise (Futebol) ---
