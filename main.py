@@ -145,7 +145,7 @@ def processar_updates(offset=None):
             if "text" in msg:
                 texto = msg["text"].lower().strip()
                 # Ignora mensagens enviadas há mais de 10 minutos para não responder comandos antigos
-                if aagora_atual - msg_date > 600: continue
+                if agora_atual - msg_date > 600: continue
                 
                     comandos_ia = ["/bomdia", "/bemvindo", "/start", "/green", "/red", "/resenha"]
                 
