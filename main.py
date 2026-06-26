@@ -151,7 +151,7 @@ def processar_updates():
                 # Ignora mensagens enviadas há mais de 10 minutos para não responder comandos antigos
                 if agora_timestamp - msg_date > 600: continue
                 
-                comandos_ia = ["/bomdia", "/bemvindo", "/start", "/green", "/red", "/resenha"]
+                comandos_ia = ["/bomdia", "/bemvindo", "/start", "/green", "/red", "/resenha", "/update"]
                 
                 if texto in comandos_ia and verificar_se_eh_admin(chat_id_origem, user_id):
                     
