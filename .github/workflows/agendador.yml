@@ -1,6 +1,6 @@
 name: Bot VAR do Lucro
 
-on:
+off:
   schedule:
     # Executa de hora em hora (no minuto 0)
     - cron: '0 * * * *'
